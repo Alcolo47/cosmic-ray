@@ -6,6 +6,8 @@ import re
 
 from stevedore import driver, ExtensionManager
 
+from cosmic_ray.execution.execution_engine import ExecutionEngine
+
 log = logging.getLogger()
 
 
@@ -83,7 +85,7 @@ def interceptor_names():
     ).names()
 
 
-def get_execution_engine(name):
+def get_execution_engine(name) -> ExecutionEngine:
     """Get the execution engine by name."""
     manager = driver.DriverManager(
         namespace='cosmic_ray.execution_engines',

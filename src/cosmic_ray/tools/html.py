@@ -131,7 +131,7 @@ def _generate_html_report(db, only_completed, skip_success):
 
                                 for index, (work_item, result) in enumerate(all_items, start=1):
                                     if result is not None:
-                                        if result.is_killed:
+                                        if result.is_killed == (work_item.job_id != 'no mutation'):
                                             if result.test_outcome == TestOutcome.INCOMPETENT:
                                                 level = 'info'
                                             else:
@@ -165,29 +165,32 @@ def _generate_html_report(db, only_completed, skip_success):
                                                         with tag('div',
                                                                  klass='alert alert-{} test-outcome'.format(level),
                                                                  role='alert'):
-                                                            if not result.is_killed:
+                                                            if result is not None:
+                                                                if not result.is_killed:
+                                                                    with tag('p'):
+                                                                        text('SURVIVED')
                                                                 with tag('p'):
-                                                                    text('SURVIVED')
-                                                            with tag('p'):
-                                                                text('worker outcome: {}'.
-                                                                     format(result.worker_outcome))
-                                                            with tag('p'):
-                                                                text('test outcome: {}'.
-                                                                     format(result.test_outcome))
+                                                                    text('worker outcome: {}'.
+                                                                         format(result.worker_outcome))
+                                                                with tag('p'):
+                                                                    text('test outcome: {}'.
+                                                                         format(result.test_outcome))
 
-                                                    with tag('pre', klass='location'):
-                                                        with tag('a',
-                                                                 href=pycharm_url(
-                                                                     str(work_item.module_path),
-                                                                     work_item.start_pos[0]), klass='text-secondary'):
-                                                            with tag('button', klass='btn btn-outline-dark'):
-                                                                text('{}, start pos: {}, end pos: {}'.
-                                                                     format(work_item.module_path, work_item.start_pos,
-                                                                            work_item.end_pos))
+                                                    if work_item.start_pos is not None:
+                                                        with tag('pre', klass='location'):
+                                                            with tag('a',
+                                                                     href=pycharm_url(
+                                                                         str(work_item.module_path),
+                                                                         work_item.start_pos[0]), klass='text-secondary'):
+                                                                with tag('button', klass='btn btn-outline-dark'):
+                                                                    text('{}, start pos: {}, end pos: {}'.
+                                                                         format(work_item.module_path, work_item.start_pos,
+                                                                                work_item.end_pos))
 
-                                                    with tag('pre'):
-                                                        text('operator: {}, occurrence: {}'.
-                                                             format(work_item.operator_name, work_item.occurrence))
+                                                    if work_item.operator_name is not None:
+                                                        with tag('pre'):
+                                                            text('operator: {}, occurrence: {}'.
+                                                                 format(work_item.operator_name, work_item.occurrence))
 
                                                     if result is not None:
                                                         if result.diff:

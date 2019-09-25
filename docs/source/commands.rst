@@ -100,6 +100,27 @@ The list of files that will be mutate effectively can be show by running
 
  cosmic-ray init -v INFO
 
+
+The ``init`` verb use following entries from the configuration file:
+
+- ``[cosmic-ray] exclude-operators = []``: Regex list of operators to exclude:
+
+::
+
+ exclude-operators = [
+   "core/ReplaceComparisonOperator_Is(Not)?_(Not)?(Eq|[LG]tE?)",
+   "core/ReplaceComparisonOperator_(Not)?(Eq|[LG]tE?)_Is(Not)?",
+   "core/ReplaceComparisonOperator_[LG]tE_Eq",
+   "core/ReplaceComparisonOperator_[LG]t_NotEq",
+ ]
+
+The list of effective operators can be show by running
+-``cosmic-ray init`` with INFO debug level
+
+::
+
+ cosmic-ray init -v INFO
+
 Command: exec
 ~~~~~~~~~~~~~
 

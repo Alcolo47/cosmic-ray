@@ -27,6 +27,9 @@ def intercept(work_db):
     re_is_mutate = re.compile(r'.*#.*pragma:.*no mutate.*')
 
     for item in work_db.work_items:
+        if not item.module_path:
+            continue
+
         lines = file_contents(item.module_path)
         try:
             line_number = item.end_pos[0] - 1

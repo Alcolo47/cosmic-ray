@@ -14,19 +14,7 @@ def format_survival_rate():
     """
     arguments = docopt.docopt(
         format_survival_rate.__doc__, version='cr-rate 1.0')
-    with use_db(arguments['<session-file>'], WorkDB.Mode.open) as db:
-        rate = survival_rate(db)
+    with use_db(arguments['<session-file>'], WorkDB.Mode.open) as db:  # type: WorkDB
+        rate = db.abnormal_rate * 100
 
     print('{:.2f}'.format(rate))
-
-
-def survival_rate(work_db):
-    """Calcuate the survival rate for the results in a WorkDB.
-    """
-    kills = sum(r.is_killed for _, r in work_db.results)
-    num_results = work_db.num_results
-
-    if not num_results:
-        return 0
-
-    return (1 - kills / num_results) * 100

@@ -6,6 +6,7 @@ import logging
 
 from spor.repository import open_repository
 
+from cosmic_ray.work_item import WorkItem
 from cosmic_ray.work_item import WorkerOutcome, WorkResult
 
 log = logging.getLogger()
@@ -25,7 +26,7 @@ def intercept(work_db):
         with file_path.open(mode="rt") as handle:
             return handle.readlines()
 
-    for item in work_db.work_items:
+    for item in work_db.work_items:  # type: WorkItem
         if item.module_path is None:
             continue
         try:
@@ -57,9 +58,7 @@ def intercept(work_db):
                 work_db.set_result(
                     item.job_id,
                     WorkResult(
-                        output=None,
-                        test_outcome=None,
-                        diff=None,
+                        job_id=item.job_id,
                         worker_outcome=WorkerOutcome.SKIPPED,
                     ),
                 )

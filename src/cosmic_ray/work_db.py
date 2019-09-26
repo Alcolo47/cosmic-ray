@@ -4,6 +4,7 @@ import contextlib
 import os
 import sqlite3
 from enum import Enum
+from typing import Iterable, Tuple
 
 from .config import deserialize_config, serialize_config
 from .work_item import TestOutcome, WorkerOutcome, WorkItem, WorkResult
@@ -100,7 +101,7 @@ class WorkDB:
     def num_work_items(self):
         """The number of work items."""
         count = self._conn.execute("SELECT COUNT(*) FROM work_items")
-        return list(count)[0][0]
+        return next(count)[0]
 
     def add_work_item(self, work_item):
         """Add a WorkItems.
@@ -136,7 +137,32 @@ class WorkDB:
     def num_results(self):
         """The number of results."""
         count = self._conn.execute("SELECT COUNT(*) FROM results")
-        return list(count)[0][0]
+        return next(count)[0]
+
+    @property
+    def num_complete(self):
+        """The number of completed results."""
+        count = self._conn.execute("SELECT COUNT(*) FROM results "
+                                   "WHERE worker_outcome <> ?",
+                                   (WorkerOutcome.SKIPPED,))
+        return next(count)[0]
+
+    @property
+    def abnormal_rate(self):
+        count = self._conn.execute(
+            'SELECT '
+                '(SELECT count(*) FROM results WHERE worker_outcome == ?'
+                ' and job_id == "no_mutation"),'
+                '(SELECT count(*) FROM results WHERE worker_outcome == ?),'
+                '(SELECT count(*) FROM results WHERE worker_outcome in (?, ?, ?))',
+            (WorkerOutcome.ABNORMAL,
+             WorkerOutcome.ABNORMAL,
+             WorkerOutcome.NORMAL, WorkerOutcome.EXCEPTION, WorkerOutcome.ABNORMAL))
+        no_mutation_abnormal, abnormal, count = next(count)
+        if no_mutation_abnormal:
+            return 1
+        else:
+            return (abnormal / count) if count else 0
 
     def set_result(self, job_id, result):
         """Set the result for a job.
@@ -170,7 +196,7 @@ class WorkDB:
         return (_row_to_work_item(p) for p in pending)
 
     @property
-    def completed_work_items(self):
+    def completed_work_items(self) -> Iterable[Tuple[WorkItem, WorkResult]]:
         "Iterable of `(work-item, result)`s for all completed items."
         completed = self._conn.execute(
             "SELECT * FROM work_items, results WHERE work_items.job_id == results.job_id"
@@ -229,7 +255,7 @@ def _row_to_work_item(row):
         job_id=row['job_id'])
 
 
-def _work_item_to_row(work_item):
+def _work_item_to_row(work_item: WorkItem):
     return (
         str(work_item.module_path) if work_item.module_path else None,
         work_item.operator_name,
@@ -249,7 +275,9 @@ def _row_to_work_result(row):
         worker_outcome=WorkerOutcome(row['worker_outcome']),
         output=row['output'],
         test_outcome=test_outcome,
-        diff=row['diff'])
+        diff=row['diff'],
+        job_id=row['job_id'],
+    )
 
 
 def _work_result_to_row(job_id, result):

@@ -5,6 +5,7 @@ import re
 from functools import lru_cache
 import logging
 
+from cosmic_ray.work_item import WorkItem
 from cosmic_ray.work_item import WorkerOutcome, WorkResult
 
 log = logging.getLogger()
@@ -26,7 +27,7 @@ def intercept(work_db):
 
     re_is_mutate = re.compile(r'.*#.*pragma:.*no mutate.*')
 
-    for item in work_db.work_items:
+    for item in work_db.work_items:  # type: WorkItem
         if not item.module_path:
             continue
 
@@ -38,9 +39,7 @@ def intercept(work_db):
             line = lines[line_number]
             if re_is_mutate.match(line):
                 work_db.set_result(item.job_id,
-                                   WorkResult(output=None,
-                                              test_outcome=None,
-                                              diff=None,
+                                   WorkResult(job_id=item.job_id,
                                               worker_outcome=WorkerOutcome.SKIPPED))
         except Exception as ex:
             raise Exception("module_path: %s, start_pos: %s, end_pos: %s, len(lines): %s" %

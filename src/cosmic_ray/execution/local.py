@@ -42,11 +42,13 @@ import multiprocessing.util
 import os
 from _queue import Empty
 from multiprocessing import Queue
+from typing import Iterable
 
 from cosmic_ray.cloning import ClonedWorkspace
 from cosmic_ray.execution.execution_engine import ExecutionEngine
 from cosmic_ray.testing import run_tests
-from cosmic_ray.work_item import WorkResult, WorkerOutcome, TestOutcome
+from cosmic_ray.work_item import WorkResult, WorkerOutcome, TestOutcome, \
+    WorkItem
 from cosmic_ray.worker import worker
 
 log = logging.getLogger(__name__)
@@ -82,7 +84,7 @@ def _initialize_worker(config):
     multiprocessing.util.Finalize(_workspace, _workspace.cleanup, exitpriority=16)
 
 
-def _execute_work_item(work_item):
+def _execute_work_item(work_item: WorkItem):
     log.info('Executing worker in %s, PID=%s', _workspace.clone_dir, os.getpid())
 
     with excursion(_workspace.clone_dir):
@@ -116,7 +118,7 @@ def _execute_no_mutate():
 class LocalExecutionEngine(ExecutionEngine):
     "The local-git execution engine."
 
-    def __call__(self, pending_work, config, on_task_complete):
+    def __call__(self, pending_work: Iterable[WorkItem], config, on_task_complete):
         with multiprocessing.Pool(
                 initializer=_initialize_worker,
                 initargs=(config,)) as pool:

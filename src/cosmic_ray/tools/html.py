@@ -3,13 +3,16 @@
 import datetime
 
 from itertools import chain
+from typing import Iterable
+from typing import Tuple
 
 import docopt
 from yattag import Doc
 
 from cosmic_ray.work_db import WorkDB, use_db
 from cosmic_ray.work_item import TestOutcome
-from cosmic_ray.tools.survival_rate import survival_rate
+from cosmic_ray.work_item import WorkItem
+from cosmic_ray.work_item import WorkResult
 
 
 def report_html():
@@ -28,7 +31,7 @@ Print an HTML formatted report of test results.
     print(doc.getvalue())
 
 
-def _generate_html_report(db, only_completed, skip_success):
+def _generate_html_report(db: WorkDB, only_completed, skip_success):
     # pylint: disable=too-many-statements
     doc, tag, text = Doc().tagtext()
     doc.asis('<!DOCTYPE html>')
@@ -53,13 +56,13 @@ def _generate_html_report(db, only_completed, skip_success):
                     with tag('p', klass='text-dark'):
                         text('Cosmic Ray Report')
 
-            all_items = db.completed_work_items
+            all_items = db.completed_work_items  # type: Iterable[Tuple[WorkItem, WorkResult]]
             if not only_completed:
                 incomplete = ((item, None) for item in db.pending_work_items)
                 all_items = chain(all_items, incomplete)
 
             num_items = db.num_work_items
-            num_complete = db.num_results
+            num_complete = db.num_complete
 
             with tag('div', klass='container'):
 
@@ -89,7 +92,7 @@ def _generate_html_report(db, only_completed, skip_success):
                                         text('Complete: {} ({:.2f}%)'.format(
                                             num_complete, num_complete / num_items * 100))
                                     with tag('p'):
-                                        text('Survival rate: {:.2f}%'.format(survival_rate(db)))
+                                        text('Survival rate: {:.2f}%'.format(db.abnormal_rate * 100))
                                 else:
                                     with tag('p'):
                                         text('No jobs completed')
@@ -131,7 +134,7 @@ def _generate_html_report(db, only_completed, skip_success):
 
                                 for index, (work_item, result) in enumerate(all_items, start=1):
                                     if result is not None:
-                                        if result.is_killed == (work_item.job_id != 'no mutation'):
+                                        if result.is_good:
                                             if result.test_outcome == TestOutcome.INCOMPETENT:
                                                 level = 'info'
                                             else:

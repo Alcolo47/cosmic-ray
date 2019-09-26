@@ -33,16 +33,22 @@ class WorkResult:
 
     def __init__(self,
                  worker_outcome,
+                 job_id=None,
                  output=None,
                  test_outcome=None,
                  diff=None):
         if worker_outcome is None:
             raise ValueError('Worker outcome must always have a value.')
 
+        self._job_id = job_id
         self._output = output
         self._test_outcome = test_outcome
         self._worker_outcome = worker_outcome
         self._diff = diff
+
+    @property
+    def job_id(self):
+        return self._job_id
 
     @property
     def worker_outcome(self):
@@ -67,6 +73,7 @@ class WorkResult:
     def as_dict(self):
         "Get the WorkResult as a dict."
         return {
+            'job_id': self.job_id,
             'output': self.output,
             'test_outcome': self.test_outcome,
             'worker_outcome': self.worker_outcome,
@@ -77,6 +84,11 @@ class WorkResult:
     def is_killed(self):
         "Whether the mutation should be considered 'killed'"
         return self.test_outcome != TestOutcome.SURVIVED
+
+    @property
+    def is_good(self):
+        "Whether the mutation should be considered 'killed'"
+        return self.is_killed == (self.job_id != 'no mutation')
 
     def __eq__(self, rhs):
         return self.as_dict() == rhs.as_dict()
@@ -167,8 +179,8 @@ class WorkItem:
     def __eq__(self, rhs):
         return self.as_dict() == rhs.as_dict()
 
-    def __neq__(self, rhs):
-        return not self == rhs
+#    def __neq__(self, rhs):
+#        return not self == rhs
 
 
 class WorkItemJsonEncoder(json.JSONEncoder):

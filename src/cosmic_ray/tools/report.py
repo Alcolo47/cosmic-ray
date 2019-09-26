@@ -3,7 +3,8 @@
 import docopt
 
 from cosmic_ray.work_db import use_db, WorkDB
-from cosmic_ray.tools.survival_rate import survival_rate
+from cosmic_ray.work_item import WorkItem
+from cosmic_ray.work_item import WorkResult
 
 
 def report():
@@ -24,8 +25,8 @@ options:
     show_output = arguments['--show-output']
     show_diff = arguments['--show-diff']
 
-    with use_db(arguments['<session-file>'], WorkDB.Mode.open) as db:
-        for work_item, result in db.completed_work_items:
+    with use_db(arguments['<session-file>'], WorkDB.Mode.open) as db:  # type: WorkDB
+        for work_item, result in db.completed_work_items:  # type: WorkItem, WorkResult
             print('{} {} {} {}'.format(work_item.job_id, work_item.module_path,
                                        work_item.operator_name,
                                        work_item.occurrence))
@@ -50,13 +51,13 @@ options:
                     work_item.operator_name, work_item.occurrence))
 
         num_items = db.num_work_items
-        num_complete = db.num_results
+        num_complete = db.num_complete
 
         print('total jobs: {}'.format(num_items))
 
         if num_complete > 0:
             print('complete: {} ({:.2f}%)'.format(
                 num_complete, num_complete / num_items * 100))
-            print('survival rate: {:.2f}%'.format(survival_rate(db)))
+            print('survival rate: {:.2f}%'.format(db.abnormal_rate * 100))
         else:
             print('no jobs completed')

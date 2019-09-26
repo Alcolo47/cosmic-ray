@@ -6,7 +6,8 @@ import xml.etree.ElementTree
 import docopt
 
 from cosmic_ray.work_db import use_db, WorkDB
-from cosmic_ray.work_item import TestOutcome, WorkerOutcome
+from cosmic_ray.work_item import TestOutcome, WorkerOutcome, WorkItem, \
+    WorkResult
 
 
 def report_xml():
@@ -29,7 +30,10 @@ def _create_xml_report(db):
     skipped = 0
     root_elem = xml.etree.ElementTree.Element('testsuite')
 
-    for work_item, result in db.completed_work_items:
+    for work_item, result in db.completed_work_items:  # type: WorkItem, WorkResult
+        if work_item.job_id == 'no_mutation':
+            continue
+
         if result.worker_outcome in {
                 WorkerOutcome.EXCEPTION, WorkerOutcome.ABNORMAL
         }:
@@ -54,7 +58,7 @@ def _create_xml_report(db):
     return xml.etree.ElementTree.ElementTree(root_elem)
 
 
-def _create_element_from_work_item(work_item):
+def _create_element_from_work_item(work_item: WorkItem):
     sub_elem = xml.etree.ElementTree.Element('testcase')
 
     sub_elem.set('classname', work_item.job_id)

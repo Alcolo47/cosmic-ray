@@ -6,12 +6,10 @@ import logging
 import os
 from pathlib import Path
 import shutil
-import subprocess
 import tempfile
 import virtualenv
-
 import git
-
+from subprocess import Popen, PIPE, STDOUT, CalledProcessError
 from cosmic_ray.exceptions import CosmicRayTestingException as Exc
 
 log = logging.getLogger(__name__)
@@ -99,18 +97,13 @@ class ClonedWorkspace:
         """
         for command in commands:
             log.info('Running installation command: %s', command)
-            try:
-                r = subprocess.run(command,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT,
-                                   shell=True,
-                                   cwd=str(self._clone_dir),
-                                   check=True)
-
-                log.info('Command results: %s', r.stdout)
-            except subprocess.CalledProcessError as exc:
-                log.error("Error running command in virtual environment\ncommand: %s\nerror: %s",
-                          command, exc.output)
+            p = Popen(command, shell=True, encoding='utf-8',
+                      stdout=PIPE, stderr=STDOUT, cwd=str(self._clone_dir))
+            for line in p.stdout:
+                log.info('  >> %s', line.strip())
+            ret = p.wait() != 0
+            if ret:
+                log.error("Error running %s  (return code %s", command, ret)
 
 
 def _clone_with_git(repo_uri, dest_path):

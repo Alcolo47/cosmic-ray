@@ -11,7 +11,7 @@ from cosmic_ray.work_item import WorkerOutcome, WorkResult
 log = logging.getLogger()
 
 
-def intercept(work_db):
+def intercept(work_db, config):
     """Look for WorkItems in `work_db` that should not be mutated due to spor metadata.
 
     For each WorkItem, find anchors for the item's file/line/columns. If an

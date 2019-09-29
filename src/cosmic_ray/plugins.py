@@ -2,8 +2,12 @@
 """
 
 import logging
+from typing import Dict, Type
 
 from stevedore import driver, ExtensionManager
+
+from cosmic_ray.operators.operator import Operator
+from cosmic_ray.operators.provider import OperatorProvider
 
 log = logging.getLogger()
 
@@ -21,10 +25,10 @@ OPERATOR_PROVIDERS = {
     for extension in ExtensionManager(
         'cosmic_ray.operator_providers',
         on_load_failure_callback=_log_extension_loading_failure)
-}
+}   # type: Dict[str, OperatorProvider]
 
 
-def get_operator(name):
+def get_operator(name) -> Type[Operator]:
     """Get an operator class from a provider plugin.
 
     Attrs:

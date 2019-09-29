@@ -11,8 +11,9 @@ class Operator(ABC):
             A string of the form "MAJOR.MINOR", e.g. "3.6" for Python 3.6.x.
     """
 
-    def __init__(self, python_version):
+    def __init__(self, python_version, op_config):
         self._python_version = python_version
+        self._op_config = op_config or {}
 
     @property
     def python_version(self):

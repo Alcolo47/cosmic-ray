@@ -4,7 +4,9 @@ import uuid
 
 from cosmic_ray.ast import get_ast, Visitor
 import cosmic_ray.modules
+from cosmic_ray.config import ConfigDict
 from cosmic_ray.plugins import get_interceptor, interceptor_names, get_operator
+from cosmic_ray.work_db import WorkDB
 from cosmic_ray.work_item import WorkItem
 
 log = logging.getLogger()
@@ -44,7 +46,7 @@ class WorkDBInitVisitor(Visitor):
         self.occurrence += 1
 
 
-def init(module_paths, work_db, config):
+def init(module_paths, work_db: WorkDB, config: ConfigDict):
     """Clear and initialize a work-db with work items.
 
     Any existing data in the work-db will be cleared and replaced with entirely
@@ -66,7 +68,8 @@ def init(module_paths, work_db, config):
             module_path, python_version=config.python_version)
 
         for op_name in operator_names:
-            operator = get_operator(op_name)(config.python_version)
+            op_config = config.get_operator(op_name)
+            operator = get_operator(op_name)(config.python_version, op_config)
             visitor = WorkDBInitVisitor(module_path, op_name, work_db,
                                         operator)
             visitor.walk(module_ast)

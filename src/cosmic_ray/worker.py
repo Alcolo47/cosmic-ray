@@ -14,6 +14,7 @@ from cosmic_ray.work_item import TestOutcome, WorkerOutcome, WorkResult
 def worker(module_path,
            python_version,
            operator_name,
+           op_config,
            occurrence,
            test_command,
            timeout):
@@ -55,7 +56,7 @@ def worker(module_path,
     """
     try:
         operator_class = cosmic_ray.plugins.get_operator(operator_name)
-        operator = operator_class(python_version)
+        operator = operator_class(python_version, op_config)
 
         with cosmic_ray.mutating.use_mutation(module_path, operator,
                                               occurrence) as (original_code,

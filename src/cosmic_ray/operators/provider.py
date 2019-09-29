@@ -2,11 +2,14 @@
 """
 
 import itertools
+from typing import Dict
+from typing import Type
 
+from cosmic_ray.operators.operator import Operator
 from . import (binary_operator_replacement, boolean_replacer, break_continue,
                comparison_operator_replacement, exception_replacer,
                number_replacer, remove_decorator, unary_operator_replacement,
-               zero_iteration_for_loop)
+               zero_iteration_for_loop, string_replacer)
 
 _OPERATORS = {
     op.__name__: op
@@ -21,8 +24,10 @@ _OPERATORS = {
         exception_replacer.ExceptionReplacer,
         number_replacer.NumberReplacer,
         remove_decorator.RemoveDecorator,
-        zero_iteration_for_loop.ZeroIterationForLoop))
-}
+        zero_iteration_for_loop.ZeroIterationForLoop,
+        string_replacer.StringReplacer,
+    ))
+}  # type: Dict[str, Type[Operator]]
 
 
 class OperatorProvider:
@@ -31,5 +36,5 @@ class OperatorProvider:
     def __iter__(self):
         return iter(_OPERATORS)
 
-    def __getitem__(self, name):
+    def __getitem__(self, name) -> Type[Operator]:
         return _OPERATORS[name]

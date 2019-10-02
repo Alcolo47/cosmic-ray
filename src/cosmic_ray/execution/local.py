@@ -42,6 +42,7 @@ import multiprocessing.util
 import os
 
 from cosmic_ray.cloning import ClonedWorkspace
+from cosmic_ray.config import ConfigDict
 from cosmic_ray.execution.execution_engine import ExecutionEngine
 from cosmic_ray.worker import worker
 

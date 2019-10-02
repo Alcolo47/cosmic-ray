@@ -2,10 +2,11 @@
 """
 
 import logging
-from typing import Dict, Type
+from typing import Type, Dict
 
 from stevedore import driver, ExtensionManager
 
+from cosmic_ray.interceptors import Interceptor
 from cosmic_ray.operators.operator import Operator
 from cosmic_ray.operators.provider import OperatorProvider
 
@@ -14,7 +15,7 @@ log = logging.getLogger()
 
 def _log_extension_loading_failure(_mgr, ep, err):
     # We have to log at the `error` level here as opposed to, say, `info`
-    # because logging isn't configure when we reach here. We need this infor to
+    # because logging isn't configure when we reach here. We need this info to
     # print with the default logging settings.
     log.error('Operator provider load failure: extension-point="%s", err="%s"',
               ep, err)
@@ -54,7 +55,7 @@ def operator_names():
                  for operator_name in provider)
 
 
-def get_interceptor(name):
+def get_interceptor(name) -> Type[Interceptor]:
     """Get an interceptor by name.
 
     Attrs:

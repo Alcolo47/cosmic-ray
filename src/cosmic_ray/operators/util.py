@@ -32,6 +32,10 @@ def dump_node(node, stdout=None):
         if value:
             value = value.replace('\n', '\\n')
             write(f", '{value}'")
+        prefix = getattr(node, 'prefix', None)
+        if prefix:
+            prefix = prefix.replace('\n', '\\n')
+            write(f", prefix: '{prefix}'")
         children = getattr(node, 'children', None)
         if children:
             write(', [\n')

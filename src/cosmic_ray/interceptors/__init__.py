@@ -24,8 +24,7 @@ class Interceptors(list):
                 name = name[:-len('Interceptor')]
 
             name = re_camel_to_kebab.sub(r'\1-\2', name).lower()
-            interceptor_config = config.get(name, {})
-            interceptor.config = interceptor_config
+            interceptor.set_config(config.get(name, {}))
 
     def pre_scan_module_path(self, module_path):
         for interceptor in self:

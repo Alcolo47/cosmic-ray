@@ -8,7 +8,9 @@ from cosmic_ray.work_item import WorkItem
 class Interceptor:
     def __init__(self, work_db: WorkDB):
         self.work_db = work_db
-        self.config = None
+
+    def set_config(self, config):
+        pass
 
     def pre_scan_module_path(self, module_path) -> bool:
         return True

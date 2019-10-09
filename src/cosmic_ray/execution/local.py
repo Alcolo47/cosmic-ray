@@ -50,7 +50,7 @@ log = logging.getLogger(__name__)
 
 # Per-subprocess globals
 _workspace = None
-_config = None
+_config = None  # type: ConfigDict
 
 
 @contextlib.contextmanager
@@ -89,6 +89,7 @@ def _execute_work_item(work_item):
             _config.python_version,
             work_item.operator_name,
             work_item.occurrence,
+            _config.get_operator(work_item.operator_name),
             _config.test_command,
             _config.timeout)
 

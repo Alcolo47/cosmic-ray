@@ -34,8 +34,8 @@ class Interceptor:
     def post_add_work_item(self,
                            operator: Operator,
                            node: Node,
-                           new_work_item: WorkItem):
-        """Called when a work_item id insrted in db.
+                           work_item: WorkItem):
+        """Called when a work_item id inserted in db.
         Here, you can add a skipped result for this work item.
         """
         pass

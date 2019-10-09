@@ -6,7 +6,8 @@ import itertools
 from . import (binary_operator_replacement, boolean_replacer, break_continue,
                comparison_operator_replacement, exception_replacer,
                number_replacer, remove_decorator, remove_named_argument,
-               unary_operator_replacement, zero_iteration_for_loop)
+               string_replacer, unary_operator_replacement,
+               zero_iteration_for_loop)
 
 _OPERATORS = {
     op.__name__: op
@@ -22,6 +23,7 @@ _OPERATORS = {
         number_replacer.NumberReplacer,
         remove_decorator.RemoveDecorator,
         remove_named_argument.RemoveNamedArgument,
+        string_replacer.StringReplacer,
         zero_iteration_for_loop.ZeroIterationForLoop))
 }
 

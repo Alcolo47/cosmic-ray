@@ -38,7 +38,7 @@ class Data:
 
     operator_names = [
         'core/ReplaceOrWithAnd',
-        # 'core/StringReplacer',
+        'core/StringReplacer',
     ]
 
     if sys.version_info < (3, 6):

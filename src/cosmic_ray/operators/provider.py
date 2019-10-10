@@ -5,9 +5,14 @@ import itertools
 
 from . import (binary_operator_replacement, boolean_replacer, break_continue,
                comparison_operator_replacement, exception_replacer,
-               number_replacer, remove_decorator, remove_named_argument,
+               no_op, number_replacer, remove_decorator, remove_named_argument,
                string_replacer, unary_operator_replacement,
                zero_iteration_for_loop)
+
+# NB: The no_op operator gets special handling. We don't include it in iteration of the
+# available operators. However, you can request it from the provider by name. This lets us
+# use it in a special way: to request that a worker perform a no-op test run while preventing
+# it from being used in normal mutations testing runs.
 
 _OPERATORS = {
     op.__name__: op
@@ -35,4 +40,7 @@ class OperatorProvider:
         return iter(_OPERATORS)
 
     def __getitem__(self, name):
-        return _OPERATORS[name]
+        if name == 'NoOp':
+            return no_op.NoOp
+        else:
+            return _OPERATORS[name]

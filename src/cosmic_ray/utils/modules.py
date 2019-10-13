@@ -1,7 +1,14 @@
-"""Functions related to finding modules for testing."""
+"""Functions related to finding modules for testing.
+"""
 
 import glob
+import logging
+from collections import defaultdict
+from logging import getLogger
 from pathlib import Path
+
+
+log = getLogger(__name__)
 
 
 def find_modules(module_path):
@@ -32,3 +39,16 @@ def filter_paths(paths, excluded_paths):
     excluded = set(Path(f) for excluded_path in excluded_paths
                    for f in glob.glob(excluded_path, recursive=True))
     return set(paths) - excluded
+
+
+def get_module_list(exclude_modules, module_path):
+    modules = find_modules(Path(module_path))
+    modules = filter_paths(modules, exclude_modules)
+    if log.isEnabledFor(logging.INFO):
+        log.info('Modules discovered:')
+        per_dir = defaultdict(list)
+        for m in modules:
+            per_dir[m.parent].append(m.name)
+        for dir, files in per_dir.items():
+            log.info(' - %s: %s', dir, ', '.join(sorted(files)))
+    return modules

@@ -4,8 +4,8 @@ import sys
 
 import pytest
 
-from cosmic_ray.work_db import use_db, WorkDB
-from cosmic_ray.tools.survival_rate import survival_rate
+from cosmic_ray.db.work_db import use_db, WorkDB
+from cosmic_ray.utils.survival_rate import survival_rate
 
 
 @pytest.fixture(scope="session")
@@ -22,13 +22,7 @@ def test_fast_tests(project_root, session):
     modified CR to work around this problem, and this test tries to ensure that we don't regress.
     """
     subprocess.check_call(
-        [sys.executable, "-m", "cosmic_ray.cli", "init", "cr.conf",
-         str(session)],
-        cwd=str(project_root))
-
-    subprocess.check_call(
-        [sys.executable, "-m", "cosmic_ray.cli", "exec",
-         str(session)],
+        [sys.executable, "-m", "cosmic_ray.cli", "run", "--session", session, "cr.conf"],
         cwd=str(project_root))
 
     session_path = project_root / session

@@ -1,5 +1,5 @@
 from pathlib import Path
-from cosmic_ray.modules import find_modules, filter_paths
+from cosmic_ray.utils.modules import find_modules, filter_paths
 
 
 def test_small_directory_tree(data_dir):

@@ -15,7 +15,7 @@ def tmpdir_path(tmpdir):
 def session(tmpdir_path):
     """A temp session file (pathlib.Path)
     """
-    return tmpdir_path / 'cr-session.sqlite'
+    return str(tmpdir_path / 'cosmic-ray.sqlite')
 
 
 @pytest.fixture
@@ -24,7 +24,8 @@ def python_version():
 
 
 def pytest_addoption(parser):
-    "Add our custom command line options"
+    """Add our custom command line options
+    """
     parser.addoption(
         "--e2e-engine",
         action="append",
@@ -39,7 +40,8 @@ def pytest_addoption(parser):
 
 
 def pytest_generate_tests(metafunc):
-    "Resolve the 'engine' and 'tester' fixtures."
+    """Resolve the 'engine' and 'tester' fixtures.
+    """
     if 'engine' in metafunc.fixturenames:
         metafunc.parametrize("engine",
                              set(metafunc.config.getoption('--e2e-engine')))

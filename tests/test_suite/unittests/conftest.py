@@ -1,8 +1,12 @@
 import contextlib
 import os
 from pathlib import Path
+from typing import Union
 
 import pytest
+
+from cosmic_ray.execution_engines import ExecutionEngine
+from cosmic_ray.execution_engines.execution_engine import ExecutionData
 
 _THIS_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 
@@ -33,3 +37,17 @@ class PathUtils:
 def path_utils():
     "Path utilities for testing."
     return PathUtils
+
+
+class DummyExecutionEngine(ExecutionEngine):
+    def __init__(self):
+        self.new_codes = []
+
+    async def execute(self, data: Union[ExecutionData, None]):
+        self.new_codes.append(data and data.new_code)
+
+
+@pytest.fixture
+def dummy_execution_engine():
+    return DummyExecutionEngine()
+

@@ -27,6 +27,7 @@ class RemoveNamedArgument(Operator):
         for i, child in enumerate(node.children):
             if ASTQuery(child).match(PythonNode, type='argument'):
                 if count == index:
+                    node = self.clone_node(node)
                     try:
                         next_child = node.children[i + 1]
                         if ASTQuery(next_child).match(tree_Operator, value=','):
@@ -41,9 +42,6 @@ class RemoveNamedArgument(Operator):
     def examples(cls):
         return (
             ("f(1, b=2)", "f(1,)"),  # Ending coma is acceptable
-            ("f(1, b=2, c=3)", "f(1, c=3)", 0),
-            ("f(1, b=2, c=3)", "f(1, b=2,)", 1),
-
-            ("f(a=1, b=2)", "f( b=2)", 0),
-            ("f(a=1, b=2)", "f(a=1,)", 1),
+            ("f(1, b=2, c=3)", ("f(1, c=3)",  "f(1, b=2,)")),
+            ("f(a=1, b=2)", ("f( b=2)", "f(a=1,)")),
         )

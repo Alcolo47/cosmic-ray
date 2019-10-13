@@ -5,7 +5,7 @@ import itertools
 
 from . import (binary_operator_replacement, boolean_replacer, break_continue,
                comparison_operator_replacement, exception_replacer,
-               no_op, number_replacer, remove_decorator, remove_named_argument,
+               number_replacer, remove_decorator, remove_named_argument,
                string_replacer, unary_operator_replacement,
                zero_iteration_for_loop)
 
@@ -16,20 +16,26 @@ from . import (binary_operator_replacement, boolean_replacer, break_continue,
 
 _OPERATORS = {
     op.__name__: op
-    for op in itertools.chain(binary_operator_replacement.operators(
-    ), comparison_operator_replacement.operators(
-    ), unary_operator_replacement.operators(), (
-        boolean_replacer.AddNot, boolean_replacer.ReplaceTrueWithFalse,
-        boolean_replacer.ReplaceFalseWithTrue,
-        boolean_replacer.ReplaceAndWithOr, boolean_replacer.ReplaceOrWithAnd,
-        break_continue.ReplaceBreakWithContinue,
-        break_continue.ReplaceContinueWithBreak,
-        exception_replacer.ExceptionReplacer,
-        number_replacer.NumberReplacer,
-        remove_decorator.RemoveDecorator,
-        remove_named_argument.RemoveNamedArgument,
-        string_replacer.StringReplacer,
-        zero_iteration_for_loop.ZeroIterationForLoop))
+    for op in itertools.chain(
+        binary_operator_replacement.operators(),
+        comparison_operator_replacement.operators(),
+        unary_operator_replacement.operators(),
+        (
+            boolean_replacer.AddNot,
+            boolean_replacer.ReplaceTrueWithFalse,
+            boolean_replacer.ReplaceFalseWithTrue,
+            boolean_replacer.ReplaceAndWithOr,
+            boolean_replacer.ReplaceOrWithAnd,
+            break_continue.ReplaceBreakWithContinue,
+            break_continue.ReplaceContinueWithBreak,
+            exception_replacer.ExceptionReplacer,
+            number_replacer.NumberReplacer,
+            remove_decorator.RemoveDecorator,
+            remove_named_argument.RemoveNamedArgument,
+            string_replacer.StringReplacer,
+            zero_iteration_for_loop.ZeroIterationForLoop,
+        ),
+    )
 }
 
 
@@ -40,7 +46,4 @@ class OperatorProvider:
         return iter(_OPERATORS)
 
     def __getitem__(self, name):
-        if name == 'NoOp':
-            return no_op.NoOp
-        else:
-            return _OPERATORS[name]
+        return _OPERATORS[name]

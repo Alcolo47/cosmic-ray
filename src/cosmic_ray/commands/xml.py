@@ -1,29 +1,12 @@
-"A tool for creating XML reports."
+"""A tool for creating XML reports.
+"""
 
-import sys
 import xml.etree.ElementTree
 
-import docopt
-
-from cosmic_ray.work_db import use_db, WorkDB
-from cosmic_ray.work_item import TestOutcome, WorkerOutcome
+from cosmic_ray.db.work_item import Outcome, WorkerOutcome
 
 
-def report_xml():
-    """cr-xml
-
-Usage: cr-xml <session-file>
-
-Print an XML formatted report of test results for continuous integration systems
-"""
-    arguments = docopt.docopt(report_xml.__doc__, version='cr-rate 1.0')
-    with use_db(arguments['<session-file>'], WorkDB.Mode.open) as db:
-        xml_elem = _create_xml_report(db)
-        xml_elem.write(
-            sys.stdout.buffer, encoding='utf-8', xml_declaration=True)
-
-
-def _create_xml_report(db):
+def generate_xml_report(db):
     errors = 0
     failed = 0
     skipped = 0
@@ -39,13 +22,13 @@ def _create_xml_report(db):
         if result.worker_outcome == WorkerOutcome.SKIPPED:
             skipped += 1
 
-        subelement = _create_element_from_work_item(work_item)
-        subelement = _update_element_with_result(subelement, result)
-        root_elem.append(subelement)
+        sub_element = _create_element_from_work_item(work_item)
+        sub_element = _update_element_with_result(sub_element, result)
+        root_elem.append(sub_element)
 
     for work_item in db.pending_work_items:
-        subelement = _create_element_from_work_item(work_item)
-        root_elem.append(subelement)
+        sub_element = _create_element_from_work_item(work_item)
+        root_elem.append(sub_element)
 
     root_elem.set('errors', str(errors))
     root_elem.set('failures', str(failed))
@@ -82,5 +65,4 @@ def _update_element_with_result(sub_elem, result):
 
 def _evaluation_success(result):
     return result.worker_outcome == WorkerOutcome.NORMAL and \
-        result.test_outcome in {TestOutcome.SURVIVED,
-                                TestOutcome.INCOMPETENT}
+        result.outcome in {Outcome.SURVIVED, Outcome.INCOMPETENT}

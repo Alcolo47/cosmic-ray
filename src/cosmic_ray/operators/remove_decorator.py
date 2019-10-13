@@ -20,7 +20,15 @@ class RemoveDecorator(Operator):
     def examples(cls):
         return (
             ('@foo\ndef bar(): pass', 'def bar(): pass'),
-            ('@first\n@second\ndef bar(): pass', '@second\ndef bar(): pass'),
-            ('@first\n@second\ndef bar(): pass', '@first\ndef bar(): pass', 1),
-            ('@first\n@second\n@third\ndef bar(): pass', '@first\n@third\ndef bar(): pass', 1),
+
+            ('@first\n@second\ndef bar(): pass', (
+                '@second\ndef bar(): pass',
+                '@first\ndef bar(): pass',
+            )),
+
+            ('@first\n@second\n@third\ndef bar(): pass', (
+                '@second\n@third\ndef bar(): pass',
+                '@first\n@third\ndef bar(): pass',
+                '@first\n@second\ndef bar(): pass',
+            )),
         )

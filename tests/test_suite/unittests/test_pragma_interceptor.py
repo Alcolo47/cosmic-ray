@@ -1,13 +1,17 @@
+import asyncio
 from typing import Dict
 
 import parso
 
-from cosmic_ray.commands.init import visit_module
-from cosmic_ray.config import ConfigDict
+from cosmic_ray.commands.run import Run
 from cosmic_ray.interceptors import Interceptors
 from cosmic_ray.interceptors.pragma_interceptor import get_pragma_list, \
-    PragmaInterceptor
-from cosmic_ray.work_item import WorkResult, WorkItem, WorkerOutcome
+    PragmaInterceptor, pragma_interceptor_config
+from cosmic_ray.operators.boolean_replacer import ReplaceTrueWithFalse, \
+    ReplaceFalseWithTrue
+from cosmic_ray.operators.remove_decorator import RemoveDecorator
+from cosmic_ray.operators.remove_named_argument import RemoveNamedArgument
+from cosmic_ray.db.work_item import WorkResult, WorkItem, WorkerOutcome
 
 
 def test_pragma():
@@ -50,13 +54,13 @@ class Data:
             for r, w in results
         }
 
-    config = {'pragma': {'filter-no-coverage': True}}
+    config = {'filter-no-coverage': True}
 
     operator_names = [
-        'core/ReplaceTrueWithFalse',
-        'core/ReplaceFalseWithTrue',
-        'core/RemoveDecorator',
-        # 'core/RemoveNamedArgument',
+        ReplaceTrueWithFalse(),
+        ReplaceFalseWithTrue(),
+        RemoveDecorator(),
+        RemoveNamedArgument(),
     ]
 
     content = """
@@ -75,31 +79,35 @@ f = f(a=1,
 
     expected = {
         # skip a
-        ((2, 4), (2, 8), 0): ('core/ReplaceTrueWithFalse', WorkerOutcome.SKIPPED),
+        ((2, 4), (2, 8), 0): ('ReplaceTrueWithFalse', WorkerOutcome.SKIPPED),
         # skip b1
-        ((3, 9), (3, 13), 1): ('core/ReplaceTrueWithFalse', WorkerOutcome.SKIPPED),
+        ((3, 9), (3, 13), 1): ('ReplaceTrueWithFalse', WorkerOutcome.SKIPPED),
         # skip b2
-        ((3, 15), (3, 20), 0): ('core/ReplaceFalseWithTrue', WorkerOutcome.SKIPPED),
+        ((3, 15), (3, 20), 0): ('ReplaceFalseWithTrue', WorkerOutcome.SKIPPED),
         # skip @decorator
-        ((6, 0), (7, 0), 0): ('core/RemoveDecorator', WorkerOutcome.SKIPPED),
+        ((6, 0), (7, 0), 0): ('RemoveDecorator', WorkerOutcome.SKIPPED),
         # skip pragma no coverage
-        ((8, 4), (8, 8), 3): ('core/ReplaceTrueWithFalse', WorkerOutcome.SKIPPED),
+        ((8, 4), (8, 8), 3): ('ReplaceTrueWithFalse', WorkerOutcome.SKIPPED),
         # skip named-argument using target_node
-        # ((11, 6), (11, 9), 1): ('core/RemoveNamedArgument', WorkerOutcome.SKIPPED),
+        ((11, 6), (11, 9), 1): ('RemoveNamedArgument', WorkerOutcome.SKIPPED),
     }
 
 
-def test_interceptor():
+def test_interceptor(dummy_execution_engine):
     data = Data()
-    interceptor = PragmaInterceptor(data)
 
-    visit_module(
-        module_path="a.py",
-        module_ast=parso.parse(data.content),
-        work_db=data,
-        interceptors=Interceptors([interceptor], data.config),
-        operator_names=data.operator_names,
-        config=ConfigDict(),
+    pragma_interceptor_config.set_config(data.config)
+
+    run = Run(data)
+    run.operators = data.operator_names
+    run.interceptors = Interceptors([PragmaInterceptor()])
+    run.execution_engine = dummy_execution_engine
+
+    asyncio.get_event_loop().run_until_complete(
+        run.visit_module(
+            module_path="a.py",
+            module_ast=parso.parse(data.content),
+        )
     )
 
     assert data.merged_results == data.expected

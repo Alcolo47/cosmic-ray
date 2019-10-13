@@ -3,7 +3,7 @@
 
 import parso
 
-from ..ast import is_number
+from cosmic_ray.utils.ast import is_number
 from .operator import Operator
 
 # List of offsets that we apply to numbers in the AST. Each index into the list
@@ -34,10 +34,7 @@ class NumberReplacer(Operator):
     @classmethod
     def examples(cls):
         return (
-            ('x = 1', 'x = 2'),
-            ('x = 1', 'x = 0', 1),
-            ('x = 4.2', 'x = 5.2'),
-            ('x = 4.2', 'x = 3.2', 1),
-            ('x = 1j', 'x = (1+1j)'),
-            ('x = 1j', 'x = (-1+1j)', 1),
+            ('x = 1', ('x = 2', 'x = 0')),
+            ('x = 4.2', ('x = 5.2', 'x = 3.2')),
+            ('x = 1j', ('x = (1+1j)', 'x = (-1+1j)')),
         )

@@ -5,9 +5,15 @@ import os.path
 
 import qprompt
 
-from cosmic_ray.config import ConfigDict
-from cosmic_ray.plugins import execution_engine_names
-
+from cosmic_ray.commands.badge import badge_config
+from cosmic_ray.commands.html import report_html_config
+from cosmic_ray.execution_engines.worker import execution_engine_worker_config
+from cosmic_ray.utils.config import root_config
+from cosmic_ray.execution_engines import execution_engines, \
+    execution_engine_config
+from cosmic_ray.interceptors import interceptors
+from cosmic_ray.operators import operators
+from cosmic_ray.workspaces import workspaces
 
 MODULE_PATH_HELP = """The path to the module that will be mutated.
 
@@ -57,8 +63,16 @@ def new_config():
 
     Returns: A new ConfigDict.
     """
-    config = ConfigDict()
-    config["module-path"] = qprompt.ask_str(
+
+    # Load all plugins to link theirs config
+    operators.values()
+    interceptors.values()
+    execution_engines.values()
+    workspaces.values()
+    v = badge_config.valid_entries
+    v = report_html_config.valid_entries
+
+    root_config["module-path"] = qprompt.ask_str(
         "Top-level module path",
         blk=False,
         vld=os.path.exists,
@@ -68,34 +82,23 @@ def new_config():
         'Python version (blank for auto detection)',
         vld=_validate_python_version,
         hlp=PYTHON_VERSION_HELP)
-    config['python-version'] = python_version
+    root_config['python-version'] = python_version
 
     timeout = qprompt.ask_str(
         'Test execution timeout (seconds)',
         vld=float,
         blk=False,
         hlp="The number of seconds to let a test run before terminating it.")
-    config['timeout'] = float(timeout)
-    config['excluded-modules'] = []
+    execution_engine_worker_config['timeout'] = float(timeout)
 
-    config["test-command"] = qprompt.ask_str(
+    execution_engine_worker_config["test-command"] = qprompt.ask_str(
         "Test command",
         blk=False,
         hlp=TEST_COMMAND_HELP)
 
     menu = qprompt.Menu()
-    for at_pos, engine_name in enumerate(execution_engine_names()):
+    for at_pos, engine_name in enumerate(execution_engines.keys()):
         menu.add(str(at_pos), engine_name)
-    config["execution-engine"] = ConfigDict()
-    config['execution-engine']['name'] = menu.show(header="Execution engine", returns="desc")
+    execution_engine_config['type'] = menu.show(header="Execution engine", returns="desc")
 
-    config["cloning"] = ConfigDict()
-    config['cloning']['workspace_type'] = 'cloned_with_virtualenv'
-    config['cloning']['method'] = 'copy'
-    config['cloning']['commands'] = []
-
-    config['interceptors'] = ConfigDict()
-    config['interceptors']['enabled'] = ['spor', 'pragma_no_mutate', 'operators-filter']
-    config['operators-filter']['exclude-operators'] = []
-
-    return config
+    return root_config.get_config_with_default()

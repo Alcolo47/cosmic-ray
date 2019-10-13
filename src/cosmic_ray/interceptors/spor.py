@@ -1,20 +1,30 @@
 """An interceptor that uses spor metadata to determine when specific mutations
 should be skipped.
 """
-from functools import lru_cache
 import logging
 
 from spor.repository import open_repository
 
-from cosmic_ray.interceptors.base import Interceptor
-from cosmic_ray.work_item import WorkerOutcome
+from cosmic_ray.interceptors.interceptor import Interceptor
+from cosmic_ray.db.work_db import WorkDB
+from cosmic_ray.db.work_item import WorkerOutcome, WorkItem
 
 log = logging.getLogger()
 
 
 class SporInterceptor(Interceptor):
 
-    def post_init(self):
+    def pre_scan_module_path(self, module_path) -> bool:
+        with module_path.open(mode="rt") as handle:
+            self.lines = handle.readlines()
+        return True
+
+    def new_work_item(self,
+                      work_db: WorkDB,
+                      operator,
+                      node,
+                      work_item: WorkItem):
+
         """Look for WorkItems in `work_db` that should not be mutated due to spor metadata.
 
         For each WorkItem, find anchors for the item's file/line/columns. If an
@@ -22,44 +32,36 @@ class SporInterceptor(Interceptor):
         is marked as SKIPPED.
         """
 
-        @lru_cache()
-        def file_contents(file_path):
-            "A simple cache of file contents."
-            with file_path.open(mode="rt") as handle:
-                return handle.readlines()
+        try:
+            repo = open_repository(work_item.module_path)
+        except ValueError:
+            log.info("No spor repository for %s", work_item.module_path)
+            return True
 
-        for item in self.work_db.pending_work_items:
-            try:
-                repo = open_repository(item.module_path)
-            except ValueError:
-                log.info("No spor repository for %s", item.module_path)
+        for _, anchor in repo.items():
+            if anchor.file_path != work_item.module_path.absolute():
                 continue
 
-            for _, anchor in repo.items():
-                if anchor.file_path != item.module_path.absolute():
-                    continue
+            metadata = anchor.metadata
 
-                metadata = anchor.metadata
+            if _item_in_context(self.lines, work_item,
+                                anchor.context) and not metadata.get("mutate", True):
+                log.info(
+                    "spor skipping %s %s %s %s %s %s",
+                    work_item.job_id,
+                    work_item.operator_name,
+                    work_item.occurrence,
+                    work_item.module_path,
+                    work_item.start_pos,
+                    work_item.end_pos,
+                )
 
-                lines = file_contents(item.module_path)
-                if _item_in_context(
-                        lines, item,
-                        anchor.context) and not metadata.get("mutate", True):
-                    log.info(
-                        "spor skipping %s %s %s %s %s %s",
-                        item.job_id,
-                        item.operator_name,
-                        item.occurrence,
-                        item.module_path,
-                        item.start_pos,
-                        item.end_pos,
-                    )
-
-                    self._add_work_result(
-                        item,
-                        output="filtered by spor",
-                        worker_outcome=WorkerOutcome.SKIPPED,
-                    )
+                self._add_work_result(
+                    work_db,
+                    work_item,
+                    output="filtered by spor",
+                    worker_outcome=WorkerOutcome.SKIPPED,
+                )
 
 
 def _line_and_col_to_offset(lines, line, col):

@@ -4,18 +4,7 @@ import io
 
 import pytest
 
-from cosmic_ray.config import ConfigDict, ConfigError, deserialize_config, load_config, serialize_config
-
-
-def test_load_valid_stdin(mocker):
-    temp_stdin = io.StringIO()
-    temp_stdin.name = 'stringio'
-    config = ConfigDict()
-    config['key'] = 'value'
-    temp_stdin.write(serialize_config(config))
-    temp_stdin.seek(0)
-    mocker.patch('sys.stdin', temp_stdin)
-    assert load_config()['key'] == 'value'
+from cosmic_ray.utils.config import ConfigError, load_config, serialize_config
 
 
 def test_load_invalid_stdin_raises_ConfigError(mocker):
@@ -27,15 +16,6 @@ def test_load_invalid_stdin_raises_ConfigError(mocker):
 
     with pytest.raises(ConfigError):
         load_config()
-
-
-def test_load_from_valid_config_file(tmpdir):
-    config_path = tmpdir / 'config.conf'
-    config = ConfigDict()
-    config['key'] = 'value'
-    with config_path.open(mode='wt', encoding='utf-8') as handle:
-        handle.write(serialize_config(config))
-    assert load_config(str(config_path))['key'] == 'value'
 
 
 def test_load_non_existent_file_raises_ConfigError():

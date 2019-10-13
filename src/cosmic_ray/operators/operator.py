@@ -1,6 +1,9 @@
 "Implementation of operator base class."
 
 from abc import ABC, abstractmethod
+from copy import copy
+
+from parso.tree import BaseNode, NodeOrLeaf
 
 
 class Operator(ABC):
@@ -11,14 +14,14 @@ class Operator(ABC):
             A string of the form "MAJOR.MINOR", e.g. "3.6" for Python 3.6.x.
     """
 
-    def __init__(self, python_version, config):
-        self._python_version = python_version
-        self.config = config or {}
+    def __init__(self, name=None):
+        self.name = name or type(self).__name__
 
-    @property
-    def python_version(self):
-        "Python major.minor version as a string."
-        return self._python_version
+    def set_config(self, config):
+        """Force configuration: useful for tests
+        """
+        pass
+
 
     @abstractmethod
     def mutation_positions(self, node):
@@ -43,6 +46,21 @@ class Operator(ABC):
         been deleted. Return `node` if there is no mutation at all for
         some reason.
         """
+
+    @classmethod
+    def clone_node(cls, node: NodeOrLeaf, level=0):
+        if isinstance(node, BaseNode) and level > 0:
+            children = [cls.clone_node(n, level-1) for n in node.children]
+        else:
+            children = None
+
+        node = copy(node)
+
+        if isinstance(node, BaseNode):
+            node.children = copy(node.children)
+            if children is not None:
+                node.children[:] = children
+        return node
 
     @classmethod
     @abstractmethod

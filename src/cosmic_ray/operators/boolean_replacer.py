@@ -1,5 +1,4 @@
 "Implementation of the boolean replacement operators."
-
 import parso.python.tree
 
 from .keyword_replacer import KeywordReplacementOperator
@@ -70,6 +69,7 @@ class AddNot(Operator):
             expr_node = node.children[1]
             mutated_code = ' not{}'.format(expr_node.get_code())
             mutated_node = parso.parse(mutated_code)
+            node = self.clone_node(node)
             node.children[1] = mutated_node
 
         else:
@@ -77,6 +77,7 @@ class AddNot(Operator):
             expr_node = node.children[2]
             mutated_code = ' not{}'.format(expr_node.get_code())
             mutated_node = parso.parse(mutated_code)
+            node = self.clone_node(node)
             node.children[2] = mutated_node
 
         return node

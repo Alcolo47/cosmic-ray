@@ -10,6 +10,8 @@ from .operator import Operator
 class KeywordReplacementOperator(Operator):
     """A base class for operators that replace one keyword with another
     """
+    from_keyword = None
+    to_keyword = None
 
     def mutation_positions(self, node):
         if isinstance(node, Keyword):
@@ -20,6 +22,7 @@ class KeywordReplacementOperator(Operator):
         assert isinstance(node, Keyword)
         assert node.value == self.from_keyword
 
+        node = self.clone_node(node)
         node.value = self.to_keyword
         return node
 

@@ -4,11 +4,23 @@ from typing import Dict, List
 
 from parso.tree import Node
 
-from cosmic_ray.ast import get_comment_on_node_line
-from cosmic_ray.interceptors.base import Interceptor
+from cosmic_ray.utils.ast import get_comment_on_node_line
+from cosmic_ray.utils.config import Config
+from cosmic_ray.interceptors import interceptors_config
+from cosmic_ray.interceptors.interceptor import Interceptor
 from cosmic_ray.operators.operator import Operator
-from cosmic_ray.util import to_kebab_case
-from cosmic_ray.work_item import WorkItem, WorkerOutcome
+from cosmic_ray.utils.util import to_kebab_case
+from cosmic_ray.db.work_db import WorkDB
+from cosmic_ray.db.work_item import WorkItem, WorkerOutcome
+
+
+pragma_interceptor_config = Config(
+    interceptors_config,
+    'pragma',
+    valid_entries={
+        'filter-no-coverage': False,
+    },
+)
 
 
 class PragmaInterceptor(Interceptor):
@@ -16,24 +28,26 @@ class PragmaInterceptor(Interceptor):
         super().__init__(*args, **kwargs)
         self.filter_no_coverage = False
         self._cache_pragma = None
-
-    def set_config(self, config):
-        self.filter_no_coverage = config.get('filter-no-coverage', False)
+        self.filter_no_coverage = pragma_interceptor_config['filter-no-coverage']
 
     def pre_scan_module_path(self, module_path):
         self._cache_pragma = {}
         return True
 
-    def post_add_work_item(self,
-                           operator: Operator,
-                           node: Node,
-                           work_item: WorkItem):
+    def new_work_item(self,
+                      work_db: WorkDB,
+                      operator: Operator,
+                      node: Node,
+                      work_item: WorkItem):
         if self._have_excluding_pragma(node, operator):
             self._add_work_result(
+                work_db,
                 work_item,
                 worker_outcome=WorkerOutcome.SKIPPED,
                 output="Skipped: pragma found",
             )
+            return False
+        return True
 
     def _have_excluding_pragma(self, node, operator: Operator) -> bool:
         """
@@ -49,7 +63,7 @@ class PragmaInterceptor(Interceptor):
         if pragma_categories is None:
             pragma = get_node_pragma_categories(node)
             if pragma:
-                pragma_categories = pragma.get('no mutate')
+                pragma_categories = pragma.get('no mutate', False)
                 if self.filter_no_coverage:
                     no_coverage = pragma.get('no coverage')
                     if no_coverage:

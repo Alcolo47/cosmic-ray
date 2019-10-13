@@ -8,29 +8,19 @@ import os
 import signal
 import subprocess
 import sys
-from collections import defaultdict
-from contextlib import redirect_stdout
-from pathlib import Path
-
 import docopt
 import docopt_subcommands
 from docopt_subcommands.subcommands import Subcommands
 from exit_codes import ExitCode
 
-import cosmic_ray.commands
-import cosmic_ray.modules
-import cosmic_ray.plugins
-import cosmic_ray.testing
-import cosmic_ray.worker
-from cosmic_ray.config import load_config, serialize_config
-from cosmic_ray.mutating import apply_mutation
-from cosmic_ray.progress import report_progress
+from cosmic_ray.db.work_db import use_db, WorkDB
+from cosmic_ray.utils.config import load_config, root_config, serialize_config, \
+    ConfigError
+from cosmic_ray.utils.progress import report_progress
 from cosmic_ray.version import __version__
-from cosmic_ray.work_db import WorkDB, use_db
-from cosmic_ray.work_item import WorkItem, WorkItemJsonEncoder, WorkResult, \
-    TestOutcome
 
-log = logging.getLogger()
+
+log = logging.getLogger(__name__)
 
 
 DOC_TEMPLATE = """{program}
@@ -50,7 +40,8 @@ See '{program} <command> -h' for help on specific commands.
 
 
 class CosmicRaySubcommands(Subcommands):
-    "Subcommand handler."
+    """Subcommand handler.
+    """
 
     def _precommand_option_handler(self, config):
         verbosity_level = getattr(logging, config.get('--verbosity', 'WARNING'))
@@ -65,7 +56,8 @@ class CosmicRaySubcommands(Subcommands):
 dsc = CosmicRaySubcommands(
     program='cosmic-ray',
     version='Cosmic Ray {}'.format(__version__),
-    doc_template=DOC_TEMPLATE)
+    doc_template=DOC_TEMPLATE,
+)
 
 
 @dsc.command()
@@ -74,7 +66,9 @@ def handle_new_config(args):
 
     Create a new config file.
     """
-    config = cosmic_ray.commands.new_config()
+    from cosmic_ray.commands.new_config import new_config
+
+    config = new_config()
     config_str = serialize_config(config)
     with open(args['<config-file>'], mode='wt') as handle:
         handle.write(config_str)
@@ -82,9 +76,31 @@ def handle_new_config(args):
     return ExitCode.OK
 
 
+def _get_session_file(args):
+    config_file = args['<config-file>']
+    session_file = args.get('--session')
+
+    # Get absoklute path because we will do chdir
+    if session_file:
+        session_file = os.path.abspath(session_file)
+    config_file = os.path.abspath(config_file)
+
+    # Go to config file directoory (to read relative path relatively to config file.
+    os.chdir(os.path.dirname(config_file))
+
+    load_config(config_file)
+
+    if session_file:
+        root_config['session-file'] = session_file
+    else:
+        session_file = root_config['session-file']
+
+    return session_file
+
+
 @dsc.command()
-def handle_init(args):
-    """usage: cosmic-ray init <config-file> <session-file>
+def handle_run(args):
+    """usage: cosmic-ray run [--session=<session-file>] <config-file>
 
     Initialize a mutation testing session from a configuration. This
     primarily creates a session - a database of "work to be done" -
@@ -100,27 +116,119 @@ def handle_init(args):
     The `session-file` is the filename for the database in which the
     work order will be stored.
     """
-    config_file = args['<config-file>']
+    from cosmic_ray.utils.modules import get_module_list
+    from cosmic_ray.commands.run import Run
 
-    config = load_config(config_file)
+    session_file = _get_session_file(args)
 
-    modules = cosmic_ray.modules.find_modules(Path(config['module-path']))
-    modules = cosmic_ray.modules.filter_paths(modules, config.get('exclude-modules', ()))
+    module_path = root_config['module-path']
+    exclude_modules = root_config['exclude-modules']
 
-    if log.isEnabledFor(logging.INFO):
-        log.info('Modules discovered:')
-        per_dir = defaultdict(list)
-        for m in modules:
-            per_dir[m.parent].append(m.name)
-        for dir, files in per_dir.items():
-            log.info(' - %s: %s', dir, ', '.join(sorted(files)))
-
-    db_name = args['<session-file>']
-
-    with use_db(db_name) as database:
-        cosmic_ray.commands.init(modules, database, config)
+    modules = get_module_list(exclude_modules, module_path)
+    with use_db(session_file) as work_db:
+        Run(work_db).run(modules)
 
     return ExitCode.OK
+
+
+@dsc.command()
+def handle_badge(args):
+    """usage: cosmic-ray badge [--session=<session-file>] [--output=<badge-file>] <config-file>
+
+Generate badge file.
+
+options:
+    --config <config-file> Configuration file to use instead of session configuration
+    """
+    from cosmic_ray.commands.badge import generate_badge
+
+    session_file = _get_session_file(args)
+    badge_filename = args.get('--output')
+
+    with use_db(session_file, WorkDB.Mode.open) as work_db:
+        generate_badge(work_db, badge_filename)
+
+
+@dsc.command()
+def handle_html(args):
+    """usage: cosmic-ray html [--only-completed] [--skip-success] [--session=<session-file>] [--output=<output-file>] <config-file>
+
+Print an HTML formatted report of test results.
+    """
+    from cosmic_ray.commands.html import generate_html_report, report_html_config
+
+    session_file = _get_session_file(args)
+    only_completed = args['--only-completed']
+    skip_sucess = args['--skip-success']
+    output_filename = args.get('--output')
+    if not output_filename:
+        output_filename = report_html_config['output']
+
+    with use_db(session_file, WorkDB.Mode.open) as work_db:
+        doc = generate_html_report(work_db, only_completed, skip_sucess)
+
+    dir = os.path.dirname(output_filename)
+    if dir:
+        os.makedirs(dir, exist_ok=True)
+
+    with open(output_filename, 'w') as output:
+        output.write(doc.getvalue())
+
+
+@dsc.command()
+def handle_xml(args):
+    """usage: cosmic-ray xml [--session=<session-file>] <config-file>
+
+Print an XML formatted report of test results for continuous integration systems
+    """
+    from cosmic_ray.commands.xml import generate_xml_report
+
+    session_file = _get_session_file(args)
+    with use_db(session_file, WorkDB.Mode.open) as work_db:
+        xml_elem = generate_xml_report(work_db)
+        xml_elem.write(sys.stdout.buffer, encoding='utf-8', xml_declaration=True)
+
+
+@dsc.command()
+def handle_report(args):
+    """usage: cosmic-ray report [--show-output] [--show-diff] [--show-pending] [--session=<session-file>] <config-file>
+
+Print a nicely formatted report of test results and some basic statistics.
+
+options:
+    --show-output   Display output of test executions
+    --show-diff     Display diff of mutants
+    --show-pending  Display results for incomplete tasks
+    """
+    from cosmic_ray.commands.report import print_report
+
+    session_file = _get_session_file(args)
+    show_pending = args['--show-pending']
+    show_output = args['--show-output']
+    show_diff = args['--show-diff']
+
+    if not session_file:
+        session_file = root_config['session-file']
+
+    with use_db(session_file, WorkDB.Mode.open) as work_db:
+        print_report(work_db,
+                     show_output=show_output,
+                     show_diff=show_diff,
+                     show_pending=show_pending)
+
+
+@dsc.command()
+def handle_survival_rate(args):
+    """usage: cosmic-ray rate [--session=<session-file>] <config-file>
+
+    Calculate the survival rate of a session.
+    """
+    from cosmic_ray.utils.survival_rate import survival_rate
+
+    session_file = _get_session_file(args)
+    with use_db(session_file, WorkDB.Mode.open) as work_db:
+        rate = survival_rate(work_db)
+        print('{:.2f}'.format(rate))
 
 
 @dsc.command()
@@ -138,92 +246,6 @@ def handle_config(args):
 
 
 @dsc.command()
-def handle_exec(args):
-    """usage: cosmic-ray exec <session-file>
-
-    Perform the remaining work to be done in the specified session.
-    This requires that the rest of your mutation testing
-    infrastructure (e.g. worker processes) are already running.
-    """
-    session_file = args.get('<session-file>')
-    with use_db(session_file, mode=WorkDB.Mode.open) as work_db:
-        cosmic_ray.commands.execute(work_db)
-    return ExitCode.OK
-
-
-@dsc.command()
-def handle_baseline(args):
-    """usage: cosmic-ray baseline [--force] [--report] <session-file>
-
-    Runs a baseline execution that executes the test suite over
-    unmutated code.
-
-    options:
-      --force      Force write over baseline session file
-                   if this file was already created by a previous
-                   run.
-      --report     Print the report result of this baseline run.
-                   If the job has failed, jobs's outputs will be
-                   displayed.
-
-    return code:
-        0 if the job has exited normally, else 1.
-
-    """
-    session_file = Path(args.get('<session-file>'))
-    force = args.get('--force', False)
-    dump_report = args.get('--report', False)
-
-    baseline_session_file = session_file.parent / '{}.baseline{}'.format(
-        session_file.stem, session_file.suffix)
-
-    # Find arbitrary work-item in input session that we can copy.
-    with use_db(session_file) as db:  # type: WorkDB
-        try:
-            template = next(iter(db.work_items))
-        except StopIteration:
-            log.error('No work items in session')
-            return ExitCode.DATA_ERR
-
-        config = db.get_config()
-
-    if force:
-        try:
-            os.unlink(baseline_session_file)
-        except OSError:
-            pass
-
-    # Copy input work-item, but tell it to use the no-op operator. Create a new
-    # session containing only this work-item and execute this new session.
-    with use_db(baseline_session_file, mode=WorkDB.Mode.create) as db:
-        db.set_config(config)
-
-        db.add_work_item(
-            WorkItem(
-                module_path=template.module_path,
-                operator_name='core/NoOp',
-                occurrence=0,
-                start_pos=template.start_pos,
-                end_pos=template.end_pos,
-                job_id=template.job_id))
-
-        # Run the single-entry session.
-        cosmic_ray.commands.execute(db)
-
-        result = next(db.results)[1]  # type: WorkResult
-        if result.test_outcome == TestOutcome.KILLED:
-            if dump_report:
-                print("Execution with no mutation gives those following errors:")
-                for line in result.output.split('\n'):
-                    print("  >>>", line)
-            return 1
-        else:
-            if dump_report:
-                print("Execution with no mutation works fine:")
-            return ExitCode.OK
-
-
-@dsc.command()
 def handle_dump(args):
     """usage: cosmic-ray dump <session-file>
 
@@ -234,12 +256,14 @@ def handle_dump(args):
     WorkResult, both JSON-serialized. The WorkResult can be null, indicating a
     WorkItem with no results.
     """
-    session_file = args['<session-file>']
+    from cosmic_ray.db.work_item import WorkItemJsonEncoder
 
-    with use_db(session_file, WorkDB.Mode.open) as database:
-        for work_item, result in database.completed_work_items:
+    session_file = _get_session_file(args)
+
+    with use_db(session_file, WorkDB.Mode.open) as work_db:
+        for work_item, result in work_db.completed_work_items:
             print(json.dumps((work_item, result), cls=WorkItemJsonEncoder))
-        for work_item in database.pending_work_items:
+        for work_item in work_db.pending_work_items:
             print(json.dumps((work_item, None), cls=WorkItemJsonEncoder))
 
     return ExitCode.OK
@@ -251,8 +275,9 @@ def handle_operators(args):
 
     List the available operator plugins.
     """
-    assert args
-    print('\n'.join(cosmic_ray.plugins.operator_names()))
+    from cosmic_ray.operators import operators
+
+    print('\n'.join(operators.keys()))
 
     return ExitCode.OK
 
@@ -263,8 +288,9 @@ def handle_execution_engines(args):
 
     List the available execution-engine plugins.
     """
-    assert args
-    print('\n'.join(cosmic_ray.plugins.execution_engine_names()))
+    from cosmic_ray.execution_engines import execution_engines
+
+    print('\n'.join(execution_engines.keys()))
 
     return ExitCode.OK
 
@@ -275,70 +301,10 @@ def handle_interceptors(args):
 
     List the available interceptor plugins.
     """
-    assert args
-    print('\n'.join(cosmic_ray.plugins.interceptor_names()))
 
-    return ExitCode.OK
+    from cosmic_ray.interceptors import interceptors
 
-
-@dsc.command()
-def handle_apply(args):
-    """usage: {program} apply <config_file> <module-path> <operator> <occurrence>
-
-    Apply the specified mutation to the files on disk. This is primarily a debugging
-    tool.
-
-    options:
-      --python-version=VERSION  Python major.minor version (e.g. 3.6) of the code being mutated.
-    """
-
-    python_version = args['--python-version']
-    if python_version is None:
-        python_version = "{}.{}".format(sys.version_info.major,
-                                        sys.version_info.minor)
-
-    config_filename = args['<config_file>']
-    config = load_config(config_filename)
-
-    op_name = args['<operator>']
-    op_config = config.get_operator(op_name)
-    apply_mutation(
-        Path(args['<module-path>']),
-        cosmic_ray.plugins.get_operator(op_name)(python_version, op_config),
-        int(args['<occurrence>']))
-
-    return ExitCode.OK
-
-
-@dsc.command()
-def handle_worker(args):
-    """usage: {program} worker [options] <module-path> <operator> <occurrence> [<config-file>]
-
-    Run a worker process which performs a single mutation and test run.
-    Each worker does a minimal, isolated chunk of work: it mutates the
-    <occurrence>-th instance of <operator> in <module-path>, runs the test
-    suite defined in the configuration, prints the results, and exits.
-
-    Normally you won't run this directly. Rather, it will be launched
-    by an execution engine. However, it can be useful to run this on
-    its own for testing and debugging purposes.
-
-    options:
-      --keep-stdout             Do not squelch stdout
-
-    """
-    config = load_config(args.get('<config-file>'))
-
-    with open(os.devnull, 'w') as devnull:
-        with redirect_stdout(sys.stdout if args['--keep-stdout'] else devnull):
-            work_item = cosmic_ray.worker.worker(
-                Path(args['<module-path>']),
-                config.python_version, args['<operator>'],
-                int(args['<occurrence>']),
-                config.test_command,
-                None)
-
-    sys.stdout.write(json.dumps(work_item, cls=WorkItemJsonEncoder))
+    print('\n'.join(interceptors.keys()))
 
     return ExitCode.OK
 
@@ -366,35 +332,37 @@ def main(argv=None):
 
     :param argv: the command line arguments
     """
-    signal.signal(
-        signal.SIGINT,
-        lambda *args: sys.exit(_SIGNAL_EXIT_CODE_BASE + signal.SIGINT))
+    signal.signal(signal.SIGINT, lambda *args: sys.exit(_SIGNAL_EXIT_CODE_BASE + signal.SIGINT))
 
     if hasattr(signal, 'SIGINFO'):
-        signal.signal(
-            getattr(signal, 'SIGINFO'),
-            lambda *args: report_progress(sys.stderr))
+        signal.signal(getattr(signal, 'SIGINFO'), lambda *args: report_progress(sys.stderr))
 
     try:
         return docopt_subcommands.main(
             commands=dsc,
             argv=argv,
             doc_template=DOC_TEMPLATE,
-            exit_at_end=False)
+            exit_at_end=False
+        )
+
     except docopt.DocoptExit as exc:
         print(exc, file=sys.stderr)
         return ExitCode.USAGE
+
     except FileNotFoundError as exc:
         print(exc, file=sys.stderr)
         return ExitCode.NO_INPUT
+
     except PermissionError as exc:
         print(exc, file=sys.stderr)
         return ExitCode.NO_PERM
-    except cosmic_ray.config.ConfigError as exc:
+
+    except ConfigError as exc:
         print(repr(exc), file=sys.stderr)
         if exc.__cause__ is not None:
             print(exc.__cause__, file=sys.stderr)
         return ExitCode.CONFIG
+
     except subprocess.CalledProcessError as exc:
         print('Error in subprocess', file=sys.stderr)
         print(exc, file=sys.stderr)

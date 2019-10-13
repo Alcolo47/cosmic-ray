@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+
 """Setup for Cosmic Ray.
 """
 import io
@@ -68,9 +70,9 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Software Development :: Testing',
     ],
@@ -90,28 +92,31 @@ setup(
     entry_points={
         'console_scripts': [
             'cosmic-ray = cosmic_ray.cli:main',
-            'cr-html = cosmic_ray.tools.html:report_html',
-            'cr-report = cosmic_ray.tools.report:report',
-            'cr-badge = cosmic_ray.tools.badge:generate_badge',
-            'cr-rate = cosmic_ray.tools.survival_rate:format_survival_rate',
-            'cr-xml = cosmic_ray.tools.xml:report_xml',
         ],
+
         'cosmic_ray.test_runners': [
             'unittest = cosmic_ray.testing.unittest_runner:UnittestRunner',
         ],
+
         'cosmic_ray.operator_providers': [
             'core = cosmic_ray.operators.provider:OperatorProvider',
         ],
-        'cosmic_ray.execution_engines': [
-            'local = cosmic_ray.execution.local:LocalExecutionEngine',
 
-        ],
         'cosmic_ray.interceptors': [
             'spor = cosmic_ray.interceptors.spor:SporInterceptor',
             'pragma = cosmic_ray.interceptors.pragma_interceptor:PragmaInterceptor',
-            'operators-filter = cosmic_ray.interceptors.operators_filter:OperatorsFilterInterceptor',
             'annotation = cosmic_ray.interceptors.annotation_interceptor:AnnotationInterceptor',
         ],
+
+        'cosmic_ray.execution_engines': [
+            'local = cosmic_ray.execution_engines.local_execution_engine:LocalExecutionEngine',
+       ],
+
+        'cosmic_ray.workspaces': [
+            'cloned = cosmic_ray.workspaces.cloned_workspace:ClonedWorkspace',
+            'cloned_with_virtualenv = cosmic_ray.workspaces.cloned_with_virtualenv_workspace:ClonedWithVirtualenvWorkspace',
+        ],
+
     },
     long_description=LONG_DESCRIPTION,
 )

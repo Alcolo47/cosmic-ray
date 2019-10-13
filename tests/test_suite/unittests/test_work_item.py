@@ -1,5 +1,5 @@
 from pathlib import Path
-from cosmic_ray.work_item import WorkResult, WorkItem, TestOutcome, WorkerOutcome
+from cosmic_ray.db.work_item import WorkResult, WorkItem, WorkerOutcome
 
 
 class TestWorkResult:

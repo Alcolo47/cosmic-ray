@@ -4,31 +4,25 @@ import datetime
 
 from itertools import chain
 
-import docopt
 from yattag import Doc
 
-from cosmic_ray.work_db import WorkDB, use_db
-from cosmic_ray.work_item import TestOutcome
-from cosmic_ray.tools.survival_rate import survival_rate
+from cosmic_ray.db.work_item import Outcome
+from cosmic_ray.utils.config import root_config, Config
+from cosmic_ray.utils.survival_rate import survival_rate
+from cosmic_ray.db.work_item import WorkItem
+from cosmic_ray.db.work_item import WorkResult
 
 
-def report_html():
-    """cr-html
-
-Usage: cr-html [--only-completed] [--skip-success] <session-file>
-
-Print an HTML formatted report of test results.
-"""
-    arguments = docopt.docopt(report_html.__doc__, version='cr-rate 1.0')
-    with use_db(arguments['<session-file>'], WorkDB.Mode.open) as db:
-        doc = _generate_html_report(db,
-                                    arguments['--only-completed'],
-                                    arguments['--skip-success'])
-
-    print(doc.getvalue())
+report_html_config = Config(
+    root_config,
+    'report_html',
+    valid_entries={
+        'output': None,
+    },
+)
 
 
-def _generate_html_report(db, only_completed, skip_success):
+def generate_html_report(db, only_completed, skip_success):
     # pylint: disable=too-many-statements
     doc, tag, text = Doc().tagtext()
     doc.asis('<!DOCTYPE html>')
@@ -129,10 +123,10 @@ def _generate_html_report(db, only_completed, skip_success):
 
                                 # Job item
 
-                                for index, (work_item, result) in enumerate(all_items, start=1):
+                                for index, (work_item, result) in enumerate(all_items, start=1): # type: int, (WorkItem, WorkResult)
                                     if result is not None:
                                         if result.is_killed:
-                                            if result.test_outcome == TestOutcome.INCOMPETENT:
+                                            if result.outcome == Outcome.INCOMPETENT:
                                                 level = 'info'
                                             else:
                                                 level = 'success'
@@ -165,19 +159,20 @@ def _generate_html_report(db, only_completed, skip_success):
                                                         with tag('div',
                                                                  klass='alert alert-{} test-outcome'.format(level),
                                                                  role='alert'):
-                                                            if not result.is_killed:
+                                                            if result is not None:
+                                                                if not result.is_killed:
+                                                                    with tag('p'):
+                                                                        text('SURVIVED')
                                                                 with tag('p'):
-                                                                    text('SURVIVED')
-                                                            with tag('p'):
-                                                                text('worker outcome: {}'.
-                                                                     format(result.worker_outcome))
-                                                            with tag('p'):
-                                                                text('test outcome: {}'.
-                                                                     format(result.test_outcome))
+                                                                    text('worker outcome: {}'.
+                                                                         format(result.worker_outcome))
+                                                                with tag('p'):
+                                                                    text('test outcome: {}'.
+                                                                         format(result.outcome))
 
                                                     with tag('pre', klass='location'):
                                                         with tag('a',
-                                                                 href=pycharm_url(
+                                                                 href=_pycharm_url(
                                                                      str(work_item.module_path),
                                                                      work_item.start_pos[0]), klass='text-secondary'):
                                                             with tag('button', klass='btn btn-outline-dark'):
@@ -190,10 +185,10 @@ def _generate_html_report(db, only_completed, skip_success):
                                                              format(work_item.operator_name, work_item.occurrence))
 
                                                     if result is not None:
-                                                        if result.diff:
+                                                        if work_item.diff:
                                                             with tag('div', klass='alert alert-secondary'):
                                                                 with tag('pre', klass='diff'):
-                                                                    text(result.diff)
+                                                                    text(work_item.diff)
 
                                                         if result.output:
                                                             with tag('div', klass='alert alert-secondary'):
@@ -262,6 +257,6 @@ def _generate_html_report(db, only_completed, skip_success):
     return doc
 
 
-def pycharm_url(filename, line_number):
+def _pycharm_url(filename, line_number):
     "Get a URL for opening a file in Pycharm."
     return 'pycharm://open?file={}&line={}'.format(filename, line_number)

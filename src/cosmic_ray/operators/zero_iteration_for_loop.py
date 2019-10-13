@@ -20,6 +20,7 @@ class ZeroIterationForLoop(Operator):
         assert isinstance(node, ForStmt)
 
         empty_list = parso.parse(' []')
+        node = self.clone_node(node)
         node.children[3] = empty_list
         return node
 

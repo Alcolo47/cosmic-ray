@@ -1,53 +1,82 @@
 """Tests for the various mutation operators.
 """
+import asyncio
+from typing import Dict
+
 import pytest
 
 import parso
+from parso.tree import Node
 
-from cosmic_ray.plugins import get_operator, operator_names
+from cosmic_ray.commands.run import RunVisitor
+from cosmic_ray.interceptors import Interceptors
+from cosmic_ray.operators import Operator, operators
+from cosmic_ray.db.work_item import WorkResult, WorkItem
+
 from cosmic_ray.operators.unary_operator_replacement import ReplaceUnaryOperator_USub_UAdd
 from cosmic_ray.operators.binary_operator_replacement import ReplaceBinaryOperator_Add_Mul
-from cosmic_ray.mutating import MutationVisitor
+
+
+class DummyDb:
+    def __init__(self):
+        self.results = {}  # type: Dict[str, WorkResult]
+        self.work_items = {}  # type: Dict[str, WorkItem]
+
+    def add_work_item(self, work_item: WorkItem):
+        self.work_items[work_item.job_id] = work_item
+
+    def set_result(self, job_id, work_result: WorkResult):
+        self.results[job_id] = work_result
 
 
 class Sample:
-    def __init__(self, operator, from_code, to_code, index=0, config=None):
+    def __init__(self, operator: Operator, from_code, to_codes, config=None):
         self.operator = operator
         self.from_code = from_code
-        self.to_code = to_code
-        self.index = index
+        self.to_codes = to_codes if isinstance(to_codes, (list, tuple)) else (to_codes,)
         self.config = config
+
+    def __repr__(self):
+        return "%s: %s" % (type(self.operator).__name__, self.from_code)
 
 
 OPERATOR_PROVIDED_SAMPLES = tuple(
-    Sample(operator_class, *example)
-    for operator_class in map(get_operator, operator_names())
-    for example in operator_class.examples()
+    Sample(operator, *example)
+    for operator in operators.values()  # type: Operator
+    for example in operator.examples()
 )
 
 EXTRA_SAMPLES = tuple(
     Sample(*args) for args in (
         # Make sure unary and binary op mutators don't pick up the wrong kinds of operators
-        (ReplaceUnaryOperator_USub_UAdd, 'x + 1', 'x + 1'),
-        (ReplaceBinaryOperator_Add_Mul, '+1', '+1'),
+        (ReplaceUnaryOperator_USub_UAdd(), 'x + 1', ()),
+        (ReplaceBinaryOperator_Add_Mul(), '+1', ()),
     ))
 
 OPERATOR_SAMPLES = OPERATOR_PROVIDED_SAMPLES + EXTRA_SAMPLES
 
 
 @pytest.mark.parametrize('sample', OPERATOR_SAMPLES)
-def test_mutation_changes_ast(sample, python_version):
-    node = parso.parse(sample.from_code)
-    visitor = MutationVisitor(sample.index, sample.operator(python_version, sample.config))
-    mutant = visitor.walk(node)
+def test_mutation_changes_ast(sample: Sample, dummy_execution_engine):
+    try:
+        db = DummyDb()
+        execution_engine = dummy_execution_engine
+        interceptors = Interceptors([])
+        node: Node = parso.parse(sample.from_code)
 
-    assert mutant.get_code() == sample.to_code
+        sample.operator.set_config(sample.config)
 
+        visitor = RunVisitor(module_path="a.py",
+                             work_db=db,
+                             execution_engine=execution_engine,
+                             operator=sample.operator,
+                             interceptors=interceptors,
+                             )
 
-@pytest.mark.parametrize('sample', OPERATOR_SAMPLES)
-def test_no_mutation_leaves_ast_unchanged(sample, python_version):
-    node = parso.parse(sample.from_code)
-    visitor = MutationVisitor(-1, sample.operator(python_version, sample.config))
-    mutant = visitor.walk(node)
+        asyncio.get_event_loop().run_until_complete(visitor.walk(node))
 
-    assert mutant.get_code() == sample.from_code
+        assert execution_engine.new_codes == list(sample.to_codes)
+        assert node.get_code() == sample.from_code
+
+    except Exception as ex:
+        raise

@@ -1,12 +1,14 @@
-"""Implementation of the WorkDB."""
+"""Implementation of the WorkDB.
+"""
 
 import contextlib
 import os
 import sqlite3
 from enum import Enum
 
-from .config import deserialize_config, serialize_config
-from .work_item import TestOutcome, WorkerOutcome, WorkItem, WorkResult
+from cosmic_ray.utils.config import deserialize_config
+from cosmic_ray.utils.config import serialize_config
+from .work_item import Outcome, WorkerOutcome, WorkItem, WorkResult
 
 
 class WorkDB:
@@ -18,7 +20,8 @@ class WorkDB:
     """
 
     class Mode(Enum):
-        "Modes in which a WorkDB may be opened."
+        """Modes in which a WorkDB may be opened.
+        """
 
         # Open existing files, creating if necessary
         create = 1
@@ -48,7 +51,8 @@ class WorkDB:
         self._init_db()
 
     def close(self):
-        """Close the database."""
+        """Close the database.
+        """
         self._conn.close()
 
     @property
@@ -102,7 +106,7 @@ class WorkDB:
         count = self._conn.execute("SELECT COUNT(*) FROM work_items")
         return list(count)[0][0]
 
-    def add_work_item(self, work_item):
+    def add_work_item(self, work_item: WorkItem):
         """Add a WorkItems.
 
         Args:
@@ -111,9 +115,10 @@ class WorkDB:
         with self._conn:
             self._conn.execute(
                 '''
-                INSERT INTO work_items
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ''', _work_item_to_row(work_item))
+                INSERT INTO work_items(%s)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''' % ', '.join(_work_item_column()),
+                _work_item_to_row(work_item))
 
     def clear(self):
         """Clear all work items from the session.
@@ -126,7 +131,8 @@ class WorkDB:
 
     @property
     def results(self):
-        "An iterable of all `(job-id, WorkResult)`s."
+        """An iterable of all `(job-id, WorkResult)`s.
+        """
         cur = self._conn.cursor()
         rows = cur.execute("SELECT * FROM results")
         for row in rows:
@@ -134,11 +140,12 @@ class WorkDB:
 
     @property
     def num_results(self):
-        """The number of results."""
+        """The number of results.
+        """
         count = self._conn.execute("SELECT COUNT(*) FROM results")
         return list(count)[0][0]
 
-    def set_result(self, job_id, result):
+    def set_result(self, job_id, result: WorkResult):
         """Set the result for a job.
 
         This will overwrite any existing results for the job.
@@ -155,7 +162,7 @@ class WorkDB:
                 self._conn.execute(
                     '''
                     REPLACE INTO results
-                    VALUES (?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?)
                     ''', _work_result_to_row(job_id, result))
             except sqlite3.IntegrityError as exc:
                 raise KeyError('Can not add result with job-id {}'.format(
@@ -163,7 +170,8 @@ class WorkDB:
 
     @property
     def pending_work_items(self):
-        "Iterable of all pending work items."
+        """Iterable of all pending work items.
+        """
         pending = self._conn.execute(
             "SELECT * FROM work_items WHERE job_id NOT IN (SELECT job_id FROM results)"
         )
@@ -171,18 +179,13 @@ class WorkDB:
 
     @property
     def completed_work_items(self):
-        "Iterable of `(work-item, result)`s for all completed items."
+        """Iterable of `(work-item, result)`s for all completed items.
+        """
         completed = self._conn.execute(
             "SELECT * FROM work_items, results WHERE work_items.job_id == results.job_id"
         )
         return ((_row_to_work_item(result), _row_to_work_result(result))
                 for result in completed)
-
-    # @property
-    # def num_pending_work_items(self):
-    #     "The number of pending WorkItems in the session."
-    #     count = self._conn.execute("SELECT COUNT(*) FROM work_items WHERE job_id NOT IN (SELECT job_id FROM results)")
-    #     return count[0][0]
 
     def _init_db(self):
         with self._conn:
@@ -199,15 +202,16 @@ class WorkDB:
              start_col int,
              end_line int,
              end_col int,
-             job_id text primary key)
+             diff text,
+             job_id text primary key
+             )
             ''')
 
             self._conn.execute('''
             CREATE TABLE IF NOT EXISTS results
             (worker_outcome text,
              output text,
-             test_outcome text,
-             diff text,
+             outcome text,
              job_id text primary key,
              FOREIGN KEY(job_id) REFERENCES work_items(job_id)
             )
@@ -226,10 +230,26 @@ def _row_to_work_item(row):
         occurrence=row['occurrence'],
         start_pos=(row['start_line'], row['start_col']),
         end_pos=(row['end_line'], row['end_col']),
-        job_id=row['job_id'])
+        job_id=row['job_id'],
+        diff=row['diff'],
+    )
 
 
-def _work_item_to_row(work_item):
+def _work_item_column():
+    return (
+        'module_path',
+        'operator',
+        'occurrence',
+        'start_line',
+        'start_col',
+        'end_line',
+        'end_col',
+        'job_id',
+        'diff',
+    )
+
+
+def _work_item_to_row(work_item: WorkItem):
     return (
         str(work_item.module_path),
         work_item.operator_name,
@@ -238,26 +258,26 @@ def _work_item_to_row(work_item):
         work_item.start_pos[1],
         work_item.end_pos[0],
         work_item.end_pos[1],
-        work_item.job_id)
+        work_item.job_id,
+        work_item.diff,
+    )
 
 
 def _row_to_work_result(row):
-    test_outcome = row['test_outcome']
-    test_outcome = None if test_outcome is None else TestOutcome(test_outcome)
+    outcome = row['outcome']
+    outcome = None if outcome is None else Outcome(outcome)
 
     return WorkResult(
         worker_outcome=WorkerOutcome(row['worker_outcome']),
         output=row['output'],
-        test_outcome=test_outcome,
-        diff=row['diff'])
+        outcome=outcome)
 
 
-def _work_result_to_row(job_id, result):
+def _work_result_to_row(job_id, result: WorkResult):
     return (
         result.worker_outcome.value,  # should never be None
         result.output,
-        None if result.test_outcome is None else result.test_outcome.value,
-        result.diff,
+        None if result.outcome is None else result.outcome.value,
         job_id)
 
 

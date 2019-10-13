@@ -1,32 +1,29 @@
-"Tools for working with parso ASTs."
-
+"""Tools for working with parso ASTs."""
 from abc import ABC, abstractmethod
 
 import parso.python.tree
 import parso.tree
-from parso.tree import Leaf
+from parso.tree import Leaf, NodeOrLeaf, BaseNode
 
 
 class Visitor(ABC):
     """AST visitor for parso trees.
     """
 
-    def walk(self, node):
-        "Walk a parse tree, calling visit for each node."
-        node = self.visit(node)
+    async def walk(self, node: BaseNode):
+        self.root_node: BaseNode = node
+        await self.sub_walk(node, -1)
 
-        if node is None:
-            return None
-
-        if isinstance(node, parso.tree.BaseNode):
-            walked = map(self.walk, node.children)
-            node.children = [child for child in walked if child is not None]
-
-        return node
+    async def sub_walk(self, node, child_pos):
+        """Walk a parse tree, calling visit for each node."""
+        await self.visit(node, child_pos)
+        if isinstance(node, BaseNode):
+            for child_pos, child in enumerate(node.children):
+                await self.sub_walk(child, child_pos)
 
     @abstractmethod
-    def visit(self, node):
-        "Called for each node in the walk."
+    async def visit(self, node: NodeOrLeaf, child_pos):
+        """Called for each node in the walk."""
 
 
 def get_ast(module_path, python_version):
@@ -78,5 +75,5 @@ def is_number(node):
 
 def is_string(node):
     "Determine if a node is a string."
-    return isinstance(node, (parso.python.tree.String,
-                             parso.python.tree.FStringStart))
+    return isinstance(node, (parso.python.tree.String)) or \
+           (isinstance(node, parso.python.tree.PythonNode) and node.type == 'fstring')

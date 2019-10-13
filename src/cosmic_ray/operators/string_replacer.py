@@ -1,12 +1,23 @@
 import parso
 import sys
-from parso.python.tree import PythonNode, Name, String, Module, Function, \
-    FStringStart
+from parso.python.tree import PythonNode, Name, String, Module, Function
 from parso.tree import Node
 
-from cosmic_ray.ast import is_string
+from cosmic_ray.utils.ast import is_string
+from cosmic_ray.utils.config import Config
+from cosmic_ray.operators import operators_config
 from cosmic_ray.operators.operator import Operator
 from cosmic_ray.operators.util import ASTQuery
+
+
+string_replacer_config = Config(
+    operators_config,
+    'string-replacer',
+    valid_entries={
+        'filter-if-called-by': (),
+        'replace-with': "COSMIC %s RAY",
+    },
+)
 
 
 class StringReplacer(Operator):
@@ -14,8 +25,17 @@ class StringReplacer(Operator):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.filtered_functions = set(self.config.get('filter-if-called-by', ()))
-        self.replace_with = self.config.get('replace-with', "COSMIC %s RAY")
+        self.filtered_functions = None
+        self.replace_with = None
+        self.read_config()
+
+    def read_config(self):
+        self.filtered_functions = set(string_replacer_config['filter-if-called-by'])
+        self.replace_with = string_replacer_config['replace-with']
+
+    def set_config(self, config):
+        string_replacer_config.set_config(config)
+        self.read_config()
 
     def mutation_positions(self, node: Node):
         # _("abc"):
@@ -47,9 +67,9 @@ class StringReplacer(Operator):
 
         if is_string(node) and not self._is_docstring(node):
             if self.filtered_functions:
-                if ASTQuery(node).parent. \
+                if ASTQuery(node). \
                         IF.match(PythonNode, type='fstring').parent.FI. \
-                        match(PythonNode, type='trailer'). \
+                        parent.match(PythonNode, type='trailer'). \
                         get_previous_sibling(). \
                         IF.match(PythonNode, type='trailer').children[-1].FI. \
                         match(Name, value__in=self.filtered_functions).ok:
@@ -110,14 +130,16 @@ class StringReplacer(Operator):
                 enclose_start += 1
 
             new_s = self.replace_with % s[enclose_start:-enclose_end]
+            node = self.clone_node(node)
             node.value = '%s%s%s' % (s[:enclose_start], new_s, s[-enclose_end:])
             return node
 
-        elif isinstance(node, FStringStart):
-            s = ''.join(n.get_code() for n in node.parent.children[1:-1])
+        elif isinstance(node, PythonNode):
+            s = ''.join(n.get_code() for n in node.children[1:-1])
             s = self.replace_with % s
-            s = '%s%s%s' % (node.value, s, node.parent.children[-1].value)
-            node.parent.children[:] = parso.parse(s).children[0].children
+            s = '%s%s%s' % (node.children[0].value, s, node.children[-1].value)
+            node = self.clone_node(node)
+            node.children[:] = parso.parse(s).children[0].children
             return node
 
         else:
@@ -130,36 +152,34 @@ class StringReplacer(Operator):
             'filter-if-called-by': ['_', 'tr'],
         }
         data = [
-            ('s = "abc"', 's = "XX abc"', 0, config),
-            ('s = """abc"""', 's = """XX abc"""', 0, config),
-            ("s = '''abc'''", "s = '''XX abc'''", 0, config),
+            ('s = "abc"', 's = "XX abc"', config),
+            ('s = """abc"""', 's = """XX abc"""', config),
+            ("s = '''abc'''", "s = '''XX abc'''", config),
 
-            ('s = r"abc"', 's = r"XX abc"', 0, config),
-            ('s = r"""abc"""', 's = r"""XX abc"""', 0, config),
-            ("s = r'''abc'''", "s = r'''XX abc'''", 0, config),
+            ('s = r"abc"', 's = r"XX abc"', config),
+            ('s = r"""abc"""', 's = r"""XX abc"""', config),
+            ("s = r'''abc'''", "s = r'''XX abc'''", config),
 
-            ('s = b"abc"', 's = b"XX abc"', 0, config),
-            ('s = b"""abc"""', 's = b"""XX abc"""', 0, config),
-            ("s = b'''abc'''", "s = b'''XX abc'''", 0, config),
+            ('s = b"abc"', 's = b"XX abc"', config),
+            ('s = b"""abc"""', 's = b"""XX abc"""', config),
+            ("s = b'''abc'''", "s = b'''XX abc'''", config),
 
-            ('s = u"abc"', 's = u"XX abc"', 0, config),
-            ('s = u"""abc"""', 's = u"""XX abc"""', 0, config),
-            ("s = u'''abc'''", "s = u'''XX abc'''", 0, config),
+            ('s = u"abc"', 's = u"XX abc"', config),
+            ('s = u"""abc"""', 's = u"""XX abc"""', config),
+            ("s = u'''abc'''", "s = u'''XX abc'''", config),
 
-
-            ('f("abc")', 'f("XX abc")', 0, config),
-            ('_("abc")', '_("abc")', 0, config),
-            ('self.tr("abc")', 'self.tr("abc")', 0, config),
-            ('"Module doc string"', '"Module doc string"', 0, config),
-            ('def f():\n    "Function doc string"',
-             'def f():\n    "Function doc string"', 0, config),
+            ('f("abc")', 'f("XX abc")', config),
+            ('_("abc")', (), config),
+            ('self.tr("abc")', (), config),
+            ('"Module doc string"', (), config),
+            ('def f():\n    "Function doc string"', (), config),
         ]
 
         if sys.version_info >= (3, 6):
             # Adding fstring
             data += [
-                ('s = f"abc"', 's = f"XX abc"', 0, config),
-                ('s = f"abc {1} def"', 's = f"XX abc {1} def"', 0, config),
+                ('s = f"abc"', 's =f"XX abc"', config),
+                ('s = f"abc {1} def"', 's =f"XX abc {1} def"', config),
             ]
 
         return data

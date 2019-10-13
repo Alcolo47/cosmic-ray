@@ -1,14 +1,16 @@
+import asyncio
 from typing import Dict
 
 import parso
 import sys
 
-from cosmic_ray.commands.init import visit_module
-from cosmic_ray.config import ConfigDict
+from cosmic_ray.commands.run import Run
 from cosmic_ray.interceptors import Interceptors
 from cosmic_ray.interceptors.annotation_interceptor import \
     AnnotationInterceptor
-from cosmic_ray.work_item import WorkResult, WorkItem, WorkerOutcome
+from cosmic_ray.operators.boolean_replacer import ReplaceOrWithAnd
+from cosmic_ray.operators.string_replacer import StringReplacer
+from cosmic_ray.db.work_item import WorkResult, WorkItem, WorkerOutcome
 
 
 class Data:
@@ -30,16 +32,11 @@ class Data:
         return {
             (w.operator_name, w.occurrence):
                 (w.start_pos, w.end_pos,
-                 (r.test_outcome, r.worker_outcome) if r else (None, None))
+                 (r.outcome, r.worker_outcome) if r else (None, None))
             for w, r in results  # type: WorkItem, WorkResult
         }
 
-    config = {'pragma': {'filter-no-coverage': True}}
-
-    operator_names = [
-        'core/ReplaceOrWithAnd',
-        'core/StringReplacer',
-    ]
+    operators = [ReplaceOrWithAnd(), StringReplacer()]
 
     if sys.version_info < (3, 6):
         content = """
@@ -70,29 +67,27 @@ class Data:
         """
 
         expected = {
-            ('core/ReplaceOrWithAnd', 0): ((2, 15), (2, 17), (None, WorkerOutcome.SKIPPED)),
-            ('core/ReplaceOrWithAnd', 1): ((2, 26), (2, 28), (None, None)),
-            ('core/ReplaceOrWithAnd', 2): ((3, 14), (3, 16), (None, None)),
-            # ('core/StringReplacer', 0): ((4, 11), (4, 25), (None, WorkerOutcome.SKIPPED)),
-
-            ('core/ReplaceOrWithAnd', 3): ((5, 21), (5, 23), (None, WorkerOutcome.SKIPPED)),
-            ('core/ReplaceOrWithAnd', 4): ((5, 38), (5, 40), (None, WorkerOutcome.SKIPPED)),
-            ('core/ReplaceOrWithAnd', 5): ((6, 21), (6, 23), (None, None)),
-            ('core/ReplaceOrWithAnd', 6): ((8, 14), (8, 16), (None, None)),
+            ('ReplaceOrWithAnd', 0): ((2, 26), (2, 28), (None, None)),
+            ('ReplaceOrWithAnd', 1): ((3, 14), (3, 16), (None, None)),
+            ('ReplaceOrWithAnd', 2): ((6, 21), (6, 23), (None, None)),
+            ('ReplaceOrWithAnd', 3): ((8, 14), (8, 16), (None, None)),
         }
 
 
-def test_interceptor():
+def test_interceptor(dummy_execution_engine):
     data = Data()
-    interceptor = AnnotationInterceptor(data)
 
-    visit_module(
-        module_path="a.py",
-        module_ast=parso.parse(data.content),
-        work_db=data,
-        interceptors=Interceptors([interceptor], data.config),
-        operator_names=data.operator_names,
-        config=ConfigDict(),
+    run = Run(data)
+
+    run.interceptors = Interceptors([AnnotationInterceptor()])
+    run.operators = data.operators
+    run.execution_engine = dummy_execution_engine
+
+    asyncio.get_event_loop().run_until_complete(
+        run.visit_module(
+            module_path='a.py',
+            module_ast=parso.parse(data.content),
+        )
     )
 
     assert data.merged_results == data.expected

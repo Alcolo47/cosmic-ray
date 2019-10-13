@@ -5,7 +5,6 @@ from parso.tree import Node
 from cosmic_ray.interceptors import Interceptor
 from cosmic_ray.operators.operator import Operator
 from cosmic_ray.operators.util import ASTQuery
-from cosmic_ray.work_item import WorkItem, WorkerOutcome
 
 
 class AnnotationInterceptor(Interceptor):
@@ -17,17 +16,10 @@ class AnnotationInterceptor(Interceptor):
     >>> def g(a) -> int or float: pass
     """
 
-    def post_add_work_item(self,
-                          operator: Operator,
-                          node: Node,
-                          work_item: WorkItem):
-
-        if self._is_var_annotation(node):
-            self._add_work_result(
-                work_item,
-                output="Skipped by annotation interceptor",
-                worker_outcome=WorkerOutcome.SKIPPED,
-            )
+    def new_mutation(self,
+                     operator: Operator,
+                     node: Node):
+        return not self._is_var_annotation(node)
 
     @staticmethod
     def _is_var_annotation(node):

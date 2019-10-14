@@ -6,7 +6,7 @@ import itertools
 from . import (binary_operator_replacement, boolean_replacer, break_continue,
                comparison_operator_replacement, exception_replacer,
                number_replacer, remove_decorator, remove_named_argument,
-               string_replacer, unary_operator_replacement,
+               remove_statement, string_replacer, unary_operator_replacement,
                zero_iteration_for_loop)
 
 # NB: The no_op operator gets special handling. We don't include it in iteration of the
@@ -32,6 +32,7 @@ _OPERATORS = {
             number_replacer.NumberReplacer,
             remove_decorator.RemoveDecorator,
             remove_named_argument.RemoveNamedArgument,
+            remove_statement.RemoveStatement,
             string_replacer.StringReplacer,
             zero_iteration_for_loop.ZeroIterationForLoop,
         ),

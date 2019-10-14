@@ -69,7 +69,8 @@ class StringReplacer(Operator):
             if self.filtered_functions:
                 if ASTQuery(node). \
                         IF.match(PythonNode, type='fstring').parent.FI. \
-                        parent.match(PythonNode, type='trailer'). \
+                        IF.parent.match(PythonNode, type='trailer').FI. \
+                        match(PythonNode, type='trailer'). \
                         get_previous_sibling(). \
                         IF.match(PythonNode, type='trailer').children[-1].FI. \
                         match(Name, value__in=self.filtered_functions).ok:
@@ -180,6 +181,7 @@ class StringReplacer(Operator):
             data += [
                 ('s = f"abc"', 's =f"XX abc"', config),
                 ('s = f"abc {1} def"', 's =f"XX abc {1} def"', config),
+                ('s = _(f"abc {1} def")', (), config),
             ]
 
         return data

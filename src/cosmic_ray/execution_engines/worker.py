@@ -87,7 +87,7 @@ class Worker:
 
         except CustomCommandError as ex:
             return WorkResult(output=ex.outputs,
-                              outcome=Outcome.INCOMPETENT,
+                              outcome=Outcome.KILLED,
                               worker_outcome=WorkerOutcome.NORMAL)
 
         except Exception as ex:  # noqaq # pylint: disable=broad-except
@@ -128,21 +128,22 @@ class Worker:
         commands = data and self._files_with_custom_commands.get(str(data.filename))
         if commands:
             try:
-                p = Popen(commands[0], shell=True, stdout=PIPE, stderr=STDOUT)
+                cmd = commands[0]
+                p = Popen(cmd, shell=isinstance(cmd, str), stdout= PIPE, stderr=STDOUT)
                 outputs = p.stdout.read()
                 if p.wait() != 0:
-                    raise CustomCommandError(commands[0], outputs.decode('utf-8'))
+                    raise CustomCommandError(cmd, outputs.decode('utf-8'))
 
                 yield
 
             finally:
-                check_call(commands[1], shell=True)
+                cmd = commands[1]
+                check_call(cmd, shell=isinstance(cmd, str))
 
         else:
             yield
 
-    @staticmethod
-    async def _async_run_tests(command, timeout):
+    async def _async_run_tests(self):
         # We want to avoid writing pyc files in case our changes happen too fast for Python to
         # notice them. If the timestamps between two changes are too small, Python won't recompile
         # the source.
@@ -152,16 +153,26 @@ class Worker:
         }
 
         try:
-            proc = await asyncio.create_subprocess_shell(
-                command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
-                env=env)
+            if isinstance(self.test_command, str):
+                proc = await asyncio.create_subprocess_shell(
+                    self.test_command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.STDOUT,
+                    env=env,
+                )
+            else:
+                proc = await asyncio.create_subprocess_exec(
+                    *self.test_command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.STDOUT,
+                    env=env,
+                )
+
         except Exception:  # pylint: disable=W0703
             return Outcome.INCOMPETENT, traceback.format_exc()
 
         try:
-            outs, errs = await asyncio.wait_for(proc.communicate(), timeout)
+            outs, errs = await asyncio.wait_for(proc.communicate(), self.timeout)
 
             assert proc.returncode is not None
 
@@ -199,5 +210,5 @@ class Worker:
 
         with self.custom_commands(data):
             result = asyncio.get_event_loop().run_until_complete(
-                self._async_run_tests(self.test_command, self.timeout))
+                self._async_run_tests())
         return result

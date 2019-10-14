@@ -64,7 +64,6 @@ class ClonedWorkspace(Workspace):
                 r = subprocess.run(command,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.STDOUT,
-                                   shell=True,
                                    cwd=str(self._clone_dir),
                                    check=True)
 

@@ -107,16 +107,14 @@ def generate_html_report(db, only_completed, skip_success):
                                     with tag('div', klass='mx-1', id='job_item_expand_all'):
                                         with tag('a',
                                                  href='#',
-                                                 onclick=
-                                                 '$(\'div.job_list___sub_multi_collapse\').collapse(\'show\');'):
+                                                 onclick="$('div.job_list___sub_multi_collapse').collapse('show');"):
                                             with tag('button', klass='btn btn-outline-dark'):
                                                 with tag('span'):
                                                     text('Expand All')
                                     with tag('div', klass='mx-1', id='job_item_collapse_all'):
                                         with tag('a',
                                                  href='#',
-                                                 onclick=
-                                                 '$(\'div.job_list___sub_multi_collapse\').collapse(\'hide\');'):
+                                                 onclick="$('div.job_list___sub_multi_collapse').collapse('hide');"):
                                             with tag('button', klass='btn btn-outline-dark'):
                                                 with tag('span'):
                                                     text('Collapse All')

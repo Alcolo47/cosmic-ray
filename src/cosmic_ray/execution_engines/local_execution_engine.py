@@ -95,7 +95,7 @@ class LocalWorker:
     @classmethod
     def initialize(cls, config):
         # pylint: disable=global-statement
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
         execution_engine_config.set_config(config)
 
 

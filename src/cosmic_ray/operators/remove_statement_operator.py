@@ -4,7 +4,7 @@ from parso.tree import Node
 from cosmic_ray.operators import Operator
 
 
-class RemoveStatement(Operator):
+class RemoveStatementOperator(Operator):
     python_node_types = (
         'async_stmt',
         'simple_stmt',

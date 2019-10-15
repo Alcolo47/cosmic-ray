@@ -28,4 +28,4 @@ def test_fast_tests(project_root, session):
     session_path = project_root / session
     with use_db(str(session_path), WorkDB.Mode.open) as work_db:
         rate = survival_rate(work_db)
-        assert round(rate, 2) == 18.18
+        assert round(rate, 2) == 15.38

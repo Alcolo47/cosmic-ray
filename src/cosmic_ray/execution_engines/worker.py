@@ -1,11 +1,11 @@
 """This is the body of the low-level worker tool.
 """
+import glob
 import os
 import sys
 import asyncio
 import traceback
 from contextlib import contextmanager
-from glob import glob
 from subprocess import check_call, Popen, PIPE, STDOUT
 from typing import Dict, Tuple
 from typing import Union
@@ -46,7 +46,7 @@ class Worker:
         self._files_with_custom_commands = {
             filename: (data['before'], data['after'])
             for gl, data in execution_engine_worker_config['custom_commands_if_change_in'].items()
-            for filename in glob(gl, recursive=True)
+            for filename in glob.iglob(gl, recursive=True)
         }  # type: Dict[str, Tuple[str]]
 
     # pylint: disable=R0913
@@ -109,19 +109,25 @@ class Worker:
             yield
             return
 
-        with data.filename.open(mode='rb') as handle:
-            original_code = handle.read()
+        filename = str(data.filename)
+        tmp_filename = filename + '.TMP'
+        os.replace(filename, tmp_filename)
 
         try:
             with data.filename.open(mode='wt', encoding='utf-8') as handle:
                 handle.write(data.new_code)
-                handle.flush()
-                yield
+            yield
 
         finally:
-            with data.filename.open(mode='wb') as handle:
-                handle.write(original_code)
-                handle.flush()
+            os.replace(tmp_filename, filename)
+            basename = os.path.basename(filename)
+            basename = os.path.splitext(basename)[0]
+            pyc = os.path.join(
+                os.path.dirname(filename), '__pycache__', basename + '.*.pyc'
+            )
+            for n in glob.iglob(pyc):
+                os.unlink(n)
+
 
     @contextmanager
     def custom_commands(self, data: Union[ExecutionData, None]):
@@ -147,25 +153,18 @@ class Worker:
         # We want to avoid writing pyc files in case our changes happen too fast for Python to
         # notice them. If the timestamps between two changes are too small, Python won't recompile
         # the source.
-        env = {
-            **os.environ,
-            'PYTHONDONTWRITEBYTECODE': '1',
-        }
-
         try:
             if isinstance(self.test_command, str):
                 proc = await asyncio.create_subprocess_shell(
                     self.test_command,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.STDOUT,
-                    env=env,
                 )
             else:
                 proc = await asyncio.create_subprocess_exec(
                     *self.test_command,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.STDOUT,
-                    env=env,
                 )
 
         except Exception:  # pylint: disable=W0703
@@ -210,5 +209,6 @@ class Worker:
 
         with self.custom_commands(data):
             result = asyncio.get_event_loop().run_until_complete(
-                self._async_run_tests())
+                self._async_run_tests()
+            )
         return result

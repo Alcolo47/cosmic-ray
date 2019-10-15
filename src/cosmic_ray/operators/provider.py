@@ -3,11 +3,25 @@
 
 import itertools
 
-from . import (binary_operator_replacement, boolean_replacer, break_continue,
-               comparison_operator_replacement, exception_replacer,
-               number_replacer, remove_decorator, remove_named_argument,
-               remove_statement, string_replacer, unary_operator_replacement,
-               zero_iteration_for_loop)
+from . import (
+    modify_for_loop_zero_iteration_operator,
+    modify_invert_logical_operator,
+    modify_number_opperator,
+    modify_string_operator,
+    remove_decorator_operator,
+    remove_field_of_specific_variables_operator,
+    remove_named_argument_operator,
+    remove_statement_operator,
+    replace_binary_operators,
+    replace_boolean_operators,
+    replace_break_continue_operators,
+    replace_comparison_operators,
+    replace_exception_operator,
+    replace_logical_operators,
+    replace_none_to_values_operator,
+    replace_unary_operators,
+    replace_value_to_none_operator,
+)
 
 # NB: The no_op operator gets special handling. We don't include it in iteration of the
 # available operators. However, you can request it from the provider by name. This lets us
@@ -17,24 +31,28 @@ from . import (binary_operator_replacement, boolean_replacer, break_continue,
 _OPERATORS = {
     op.__name__: op
     for op in itertools.chain(
-        binary_operator_replacement.operators(),
-        comparison_operator_replacement.operators(),
-        unary_operator_replacement.operators(),
+        replace_binary_operators.operators(),
+        replace_comparison_operators.operators(),
+        replace_unary_operators.operators(),
         (
-            boolean_replacer.AddNot,
-            boolean_replacer.ReplaceTrueWithFalse,
-            boolean_replacer.ReplaceFalseWithTrue,
-            boolean_replacer.ReplaceAndWithOr,
-            boolean_replacer.ReplaceOrWithAnd,
-            break_continue.ReplaceBreakWithContinue,
-            break_continue.ReplaceContinueWithBreak,
-            exception_replacer.ExceptionReplacer,
-            number_replacer.NumberReplacer,
-            remove_decorator.RemoveDecorator,
-            remove_named_argument.RemoveNamedArgument,
-            remove_statement.RemoveStatement,
-            string_replacer.StringReplacer,
-            zero_iteration_for_loop.ZeroIterationForLoop,
+            modify_for_loop_zero_iteration_operator.ModifyForLoopZeroIterationOperator,
+            modify_invert_logical_operator.ModifyInvertLogicalOperator,
+            modify_number_opperator.ModifyNumberOperator,
+            modify_string_operator.ModifyStringOperator,
+            remove_decorator_operator.RemoveDecoratorOperator,
+            remove_field_of_specific_variables_operator.RemoveFieldOfSpecificVariablesOperator,
+            remove_named_argument_operator.RemoveNamedArgumentOperator,
+            remove_statement_operator.RemoveStatementOperator,
+            replace_boolean_operators.ReplaceBooleanOperatorFalseWithTrue,
+            replace_boolean_operators.ReplaceBooleanOperatorTrueWithFalse,
+            replace_break_continue_operators.ReplaceBreakWithContinueOperator,
+            replace_break_continue_operators.ReplaceContinueWithBreakOperator,
+            replace_exception_operator.ReplaceExceptionoperator,
+            replace_logical_operators.ReplaceLogicalOperatorAddNot,
+            replace_logical_operators.ReplaceLogicalOperatorAndWithOr,
+            replace_logical_operators.ReplaceLogicalOperatorOrWithAnd,
+            replace_none_to_values_operator.ReplaceNoneToValuesOperator,
+            replace_value_to_none_operator.ReplaceValueToNoneOperator,
         ),
     )
 }

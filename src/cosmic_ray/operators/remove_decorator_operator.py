@@ -1,11 +1,11 @@
-"Implementation of the remove-decorator operator."
+"""Implementation of the remove-decorator operator."""
 
 from parso.python.tree import Decorator
 
 from .operator import Operator
 
 
-class RemoveDecorator(Operator):
+class RemoveDecoratorOperator(Operator):
     """An operator that removes decorators."""
 
     def mutation_positions(self, node):

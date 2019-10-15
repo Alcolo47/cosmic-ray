@@ -1,23 +1,11 @@
-"Implementation of the boolean replacement operators."
-import parso.python.tree
+import parso.python
+from parso.python.tree import IfStmt, WhileStmt, AssertStmt
 
-from .keyword_replacer import KeywordReplacementOperator
-from .operator import Operator
-
-
-class ReplaceTrueWithFalse(KeywordReplacementOperator):
-    """An that replaces True with False."""
-    from_keyword = 'True'
-    to_keyword = 'False'
+from cosmic_ray.operators import Operator
+from cosmic_ray.operators.replace_keyword_operator import ReplaceKeywordOperator
 
 
-class ReplaceFalseWithTrue(KeywordReplacementOperator):
-    """An that replaces False with True."""
-    from_keyword = 'False'
-    to_keyword = 'True'
-
-
-class ReplaceAndWithOr(KeywordReplacementOperator):
+class ReplaceLogicalOperatorAndWithOr(ReplaceKeywordOperator):
     """An operator that swaps 'and' with 'or'."""
     from_keyword = 'and'
     to_keyword = 'or'
@@ -29,7 +17,7 @@ class ReplaceAndWithOr(KeywordReplacementOperator):
         )
 
 
-class ReplaceOrWithAnd(KeywordReplacementOperator):
+class ReplaceLogicalOperatorOrWithAnd(ReplaceKeywordOperator):
     """An operator that swaps 'or' with 'and'."""
     from_keyword = 'or'
     to_keyword = 'and'
@@ -41,7 +29,7 @@ class ReplaceOrWithAnd(KeywordReplacementOperator):
         )
 
 
-class AddNot(Operator):
+class ReplaceLogicalOperatorAddNot(Operator):
     """
         An operator that adds the 'not' keyword to boolean expressions.
 
@@ -49,8 +37,7 @@ class AddNot(Operator):
          `unary_operator_replacement.py`, including deletion of the same
          operator.
     """
-    NODE_TYPES = (parso.python.tree.IfStmt, parso.python.tree.WhileStmt,
-                  parso.python.tree.AssertStmt)
+    NODE_TYPES = (IfStmt, WhileStmt, AssertStmt)
 
     def mutation_positions(self, node):
         if isinstance(node, self.NODE_TYPES):

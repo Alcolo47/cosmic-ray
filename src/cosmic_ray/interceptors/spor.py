@@ -17,6 +17,7 @@ class SporInterceptor(Interceptor):
     def pre_scan_module_path(self, module_path) -> bool:
         with module_path.open(mode="rt") as handle:
             self.lines = handle.readlines()
+            self.lines.append('')
         return True
 
     def new_work_item(self,

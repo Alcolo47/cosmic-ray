@@ -7,10 +7,10 @@ from cosmic_ray.commands.run import Run
 from cosmic_ray.interceptors import Interceptors
 from cosmic_ray.interceptors.pragma_interceptor import get_pragma_list, \
     PragmaInterceptor, pragma_interceptor_config
-from cosmic_ray.operators.boolean_replacer import ReplaceTrueWithFalse, \
-    ReplaceFalseWithTrue
-from cosmic_ray.operators.remove_decorator import RemoveDecorator
-from cosmic_ray.operators.remove_named_argument import RemoveNamedArgument
+from cosmic_ray.operators.replace_boolean_operators import ReplaceBooleanOperatorTrueWithFalse, \
+    ReplaceBooleanOperatorFalseWithTrue
+from cosmic_ray.operators.remove_decorator_operator import RemoveDecoratorOperator
+from cosmic_ray.operators.remove_named_argument_operator import RemoveNamedArgumentOperator
 from cosmic_ray.db.work_item import WorkResult, WorkItem, WorkerOutcome
 
 
@@ -57,15 +57,15 @@ class Data:
     config = {'filter-no-coverage': True}
 
     operator_names = [
-        ReplaceTrueWithFalse(),
-        ReplaceFalseWithTrue(),
-        RemoveDecorator(),
-        RemoveNamedArgument(),
+        ReplaceBooleanOperatorTrueWithFalse(),
+        ReplaceBooleanOperatorFalseWithTrue(),
+        RemoveDecoratorOperator(),
+        RemoveNamedArgumentOperator(),
     ]
 
     content = """
 a = True  # pragma: no mutate
-b1, b2 = True, False  # pragma: no mutate: replace-true-with-false, replace-false-with-true, other
+b1, b2 = True, False  # pragma: no mutate: replace-boolean-true-with-false, replace-boolean-false-with-true, other
 c = True  # pragma: no mutate: other      
 
 @decorator  # pragma: no mutate: decorator
@@ -79,17 +79,17 @@ f = f(a=1,
 
     expected = {
         # skip a
-        ((2, 4), (2, 8), 0): ('ReplaceTrueWithFalse', WorkerOutcome.SKIPPED),
+        ((2, 4), (2, 8), 0): ('ReplaceBooleanOperatorTrueWithFalse', WorkerOutcome.SKIPPED),
         # skip b1
-        ((3, 9), (3, 13), 1): ('ReplaceTrueWithFalse', WorkerOutcome.SKIPPED),
+        ((3, 9), (3, 13), 1): ('ReplaceBooleanOperatorTrueWithFalse', WorkerOutcome.SKIPPED),
         # skip b2
-        ((3, 15), (3, 20), 0): ('ReplaceFalseWithTrue', WorkerOutcome.SKIPPED),
+        ((3, 15), (3, 20), 0): ('ReplaceBooleanOperatorFalseWithTrue', WorkerOutcome.SKIPPED),
         # skip @decorator
-        ((6, 0), (7, 0), 0): ('RemoveDecorator', WorkerOutcome.SKIPPED),
+        ((6, 0), (7, 0), 0): ('RemoveDecoratorOperator', WorkerOutcome.SKIPPED),
         # skip pragma no coverage
-        ((8, 4), (8, 8), 3): ('ReplaceTrueWithFalse', WorkerOutcome.SKIPPED),
+        ((8, 4), (8, 8), 3): ('ReplaceBooleanOperatorTrueWithFalse', WorkerOutcome.SKIPPED),
         # skip named-argument using target_node
-        ((11, 6), (11, 9), 1): ('RemoveNamedArgument', WorkerOutcome.SKIPPED),
+        ((11, 6), (11, 9), 1): ('RemoveNamedArgumentOperator', WorkerOutcome.SKIPPED),
     }
 
 

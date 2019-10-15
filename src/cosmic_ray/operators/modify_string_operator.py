@@ -10,9 +10,9 @@ from cosmic_ray.operators.operator import Operator
 from cosmic_ray.operators.util import ASTQuery
 
 
-string_replacer_config = Config(
+modify_string_config = Config(
     operators_config,
-    'string-replacer',
+    'modify-string',
     valid_entries={
         'filter-if-called-by': (),
         'replace-with': "COSMIC %s RAY",
@@ -20,7 +20,7 @@ string_replacer_config = Config(
 )
 
 
-class StringReplacer(Operator):
+class ModifyStringOperator(Operator):
     """An operator that modifies numeric constants."""
 
     def __init__(self, *args, **kwargs):
@@ -30,11 +30,11 @@ class StringReplacer(Operator):
         self.read_config()
 
     def read_config(self):
-        self.filtered_functions = set(string_replacer_config['filter-if-called-by'])
-        self.replace_with = string_replacer_config['replace-with']
+        self.filtered_functions = set(modify_string_config['filter-if-called-by'])
+        self.replace_with = modify_string_config['replace-with']
 
     def set_config(self, config):
-        string_replacer_config.set_config(config)
+        modify_string_config.set_config(config)
         self.read_config()
 
     def mutation_positions(self, node: Node):
@@ -169,11 +169,12 @@ class StringReplacer(Operator):
             ('s = u"""abc"""', 's = u"""XX abc"""', config),
             ("s = u'''abc'''", "s = u'''XX abc'''", config),
 
+            ('"Module doc string"', (), config),
+            ('def f():\n    "Function doc string"', (), config),
+
             ('f("abc")', 'f("XX abc")', config),
             ('_("abc")', (), config),
             ('self.tr("abc")', (), config),
-            ('"Module doc string"', (), config),
-            ('def f():\n    "Function doc string"', (), config),
         ]
 
         if sys.version_info >= (3, 6):

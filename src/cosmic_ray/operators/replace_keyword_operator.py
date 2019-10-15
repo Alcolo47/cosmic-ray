@@ -1,4 +1,5 @@
-"Common implementation for operators that replace keywords."
+"""Common implementation for operators that replace keywords.
+"""
 
 from parso.python.tree import Keyword
 
@@ -7,7 +8,7 @@ from .operator import Operator
 # pylint: disable=E1101
 
 
-class KeywordReplacementOperator(Operator):
+class ReplaceKeywordOperator(Operator):
     """A base class for operators that replace one keyword with another
     """
     from_keyword = None

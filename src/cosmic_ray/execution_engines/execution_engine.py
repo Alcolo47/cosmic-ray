@@ -3,11 +3,13 @@
 import abc
 from typing import Union
 
+from pathlib import Path
+
 
 class ExecutionData:
     def __init__(self, job_id, filename, new_code):
         self.job_id = job_id
-        self.filename = filename
+        self.filename = filename  # type: Path
         self.new_code = new_code
 
     def __str__(self):

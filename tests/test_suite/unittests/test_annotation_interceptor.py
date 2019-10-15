@@ -8,8 +8,8 @@ from cosmic_ray.commands.run import Run
 from cosmic_ray.interceptors import Interceptors
 from cosmic_ray.interceptors.annotation_interceptor import \
     AnnotationInterceptor
-from cosmic_ray.operators.boolean_replacer import ReplaceOrWithAnd
-from cosmic_ray.operators.string_replacer import StringReplacer
+from cosmic_ray.operators.replace_logical_operators import ReplaceLogicalOperatorOrWithAnd
+from cosmic_ray.operators.modify_string_operator import ModifyStringOperator
 from cosmic_ray.db.work_item import WorkResult, WorkItem, WorkerOutcome
 
 
@@ -36,7 +36,7 @@ class Data:
             for w, r in results  # type: WorkItem, WorkResult
         }
 
-    operators = [ReplaceOrWithAnd(), StringReplacer()]
+    operators = [ReplaceLogicalOperatorOrWithAnd(), ModifyStringOperator()]
 
     if sys.version_info < (3, 6):
         content = """
@@ -48,11 +48,11 @@ class Data:
         """
 
         expected = {
-            ('core/ReplaceOrWithAnd', 0): ((2, 14), (2, 16), (None, None)),
-            ('core/ReplaceOrWithAnd', 1): ((3, 21), (3, 23), (None, WorkerOutcome.SKIPPED)),
-            ('core/ReplaceOrWithAnd', 2): ((3, 38), (3, 40), (None, WorkerOutcome.SKIPPED)),
-            ('core/ReplaceOrWithAnd', 3): ((4, 21), (4, 23), (None, None)),
-            ('core/ReplaceOrWithAnd', 4): ((6, 14), (6, 16), (None, None)),
+            ('core/ReplaceLogicalOperatorOrWithAnd', 0): ((2, 14), (2, 16), (None, None)),
+            ('core/ReplaceLogicalOperatorOrWithAnd', 1): ((3, 21), (3, 23), (None, WorkerOutcome.SKIPPED)),
+            ('core/ReplaceLogicalOperatorOrWithAnd', 2): ((3, 38), (3, 40), (None, WorkerOutcome.SKIPPED)),
+            ('core/ReplaceLogicalOperatorOrWithAnd', 3): ((4, 21), (4, 23), (None, None)),
+            ('core/ReplaceLogicalOperatorOrWithAnd', 4): ((6, 14), (6, 16), (None, None)),
         }
 
     else:
@@ -67,10 +67,10 @@ class Data:
         """
 
         expected = {
-            ('ReplaceOrWithAnd', 0): ((2, 26), (2, 28), (None, None)),
-            ('ReplaceOrWithAnd', 1): ((3, 14), (3, 16), (None, None)),
-            ('ReplaceOrWithAnd', 2): ((6, 21), (6, 23), (None, None)),
-            ('ReplaceOrWithAnd', 3): ((8, 14), (8, 16), (None, None)),
+            ('ReplaceLogicalOperatorOrWithAnd', 0): ((2, 26), (2, 28), (None, None)),
+            ('ReplaceLogicalOperatorOrWithAnd', 1): ((3, 14), (3, 16), (None, None)),
+            ('ReplaceLogicalOperatorOrWithAnd', 2): ((6, 21), (6, 23), (None, None)),
+            ('ReplaceLogicalOperatorOrWithAnd', 3): ((8, 14), (8, 16), (None, None)),
         }
 
 

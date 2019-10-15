@@ -13,8 +13,8 @@ from cosmic_ray.interceptors import Interceptors
 from cosmic_ray.operators import Operator, operators
 from cosmic_ray.db.work_item import WorkResult, WorkItem
 
-from cosmic_ray.operators.unary_operator_replacement import ReplaceUnaryOperator_USub_UAdd
-from cosmic_ray.operators.binary_operator_replacement import ReplaceBinaryOperator_Add_Mul
+from cosmic_ray.operators.replace_unary_operators import ReplaceUnaryOperator_USub_UAdd
+from cosmic_ray.operators.replace_binary_operators import ReplaceBinaryOperator_Add_Mul
 
 
 class DummyDb:

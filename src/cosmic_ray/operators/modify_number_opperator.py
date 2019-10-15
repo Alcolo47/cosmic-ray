@@ -14,7 +14,7 @@ OFFSETS = [
 ]
 
 
-class NumberReplacer(Operator):
+class ModifyNumberOperator(Operator):
     """An operator that modifies numeric constants."""
 
     def mutation_positions(self, node):

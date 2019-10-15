@@ -4,14 +4,15 @@
 from enum import Enum
 import itertools
 
-import parso
+from parso.python.tree import PythonNode, Operator as tree_Operator, Param
 
 from .operator import Operator
 from .util import extend_name
 
 
 class BinaryOperators(Enum):
-    "All binary operators that we mutate."
+    """All binary operators that we mutate.
+    """
     Add = '+'
     Sub = '-'
     Mul = '*'
@@ -64,12 +65,12 @@ _NON_BINARY_PARENTS = {
 
 
 def _is_binary_operator(node):
-    if isinstance(node, parso.python.tree.Operator):
+    if isinstance(node, tree_Operator):
         # This catches extended call syntax, e.g. call(*x)
-        if isinstance(node.parent, parso.python.tree.Param):
+        if isinstance(node.parent, Param):
             return False
 
-        elif isinstance(node.parent, parso.python.tree.PythonNode):
+        elif isinstance(node.parent, PythonNode):
             return node.parent.type not in _NON_BINARY_PARENTS
 
         return True
@@ -89,5 +90,6 @@ for op_cls in _MUTATION_OPERATORS:
 
 
 def operators():
-    "Iterable of all binary operator replacement mutation operators."
+    """Iterable of all binary operator replacement mutation operators.
+    """
     return _MUTATION_OPERATORS

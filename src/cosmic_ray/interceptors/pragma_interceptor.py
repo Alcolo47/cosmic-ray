@@ -89,6 +89,7 @@ class PragmaInterceptor(Interceptor):
             # Removing 'Remove' because this is a pragma category name after: 'no mutate'
             if name.startswith('Remove'):
                 name = name[len('Remove'):]
+            name = name.replace('Operator', '')
             name = to_kebab_case(name)
         return name
 

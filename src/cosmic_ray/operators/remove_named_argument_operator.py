@@ -14,7 +14,7 @@ from cosmic_ray.operators.operator import Operator
 from cosmic_ray.operators.util import ASTQuery
 
 
-class RemoveNamedArgument(Operator):
+class RemoveNamedArgumentOperator(Operator):
     def mutation_positions(self, node):
         if ASTQuery(node).match(PythonNode, type='arglist'):
             for child in node.children:

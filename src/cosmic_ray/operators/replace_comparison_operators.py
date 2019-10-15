@@ -23,6 +23,7 @@ class ComparisonOperators(Enum):
     Is = 'is'
     IsNot = 'is not'
 
+
 class ReplaceComparisonOperatorBase(Operator):
     """An operator that replaces {} with {}
     """

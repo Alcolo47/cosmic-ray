@@ -1,4 +1,5 @@
-"Implementation of the zero-iteration-loop operator."
+"""Implementation of the zero-iteration-loop operator.
+"""
 
 import parso
 from parso.python.tree import ForStmt
@@ -6,7 +7,7 @@ from parso.python.tree import ForStmt
 from .operator import Operator
 
 
-class ZeroIterationForLoop(Operator):
+class ModifyForLoopZeroIterationOperator(Operator):
     """An operator that modified for-loops to have zero iterations."""
 
     def mutation_positions(self, node):
@@ -27,5 +28,5 @@ class ZeroIterationForLoop(Operator):
     @classmethod
     def examples(cls):
         return (
-            ('for i in rang(1,2): pass', 'for i in []: pass'),
+            ('for i in range(1,2): pass', 'for i in []: pass'),
         )

@@ -9,7 +9,7 @@ from .operator import Operator
 from cosmic_ray.utils.exceptions import CosmicRayTestingException
 
 
-class ExceptionReplacer(Operator):
+class ReplaceExceptionoperator(Operator):
     """An operator that modifies exception handlers.
     """
 

@@ -1,4 +1,6 @@
 import abc
+import contextlib
+import os
 import re
 from abc import ABC
 
@@ -78,3 +80,13 @@ class LazyDict():
 
     def values(self):
         return self.elts.values()
+
+
+@contextlib.contextmanager
+def excursion(dirname):
+    orig = os.getcwd()
+    try:
+        os.chdir(dirname)
+        yield
+    finally:
+        os.chdir(orig)

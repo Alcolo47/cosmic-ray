@@ -126,9 +126,7 @@ def handle_run(args):
 
     modules = get_module_list(exclude_modules, module_path)
     with use_db(session_file) as work_db:
-        Run(work_db).run(modules)
-
-    return ExitCode.OK
+        return Run(work_db).run(modules)
 
 
 @dsc.command()

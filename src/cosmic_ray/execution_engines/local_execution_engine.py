@@ -36,35 +36,22 @@ creating the configuration.
 """
 import asyncio
 import concurrent.futures
-import contextlib
 import logging
-import multiprocessing
-import multiprocessing.util
 import os
-import signal
 from typing import Union
 
+from cosmic_ray.execution_engines.remote_environment import RemoteEnvironment
 from cosmic_ray.utils.config import Config, root_config, Entry
 from cosmic_ray.execution_engines import execution_engine_config
 from cosmic_ray.execution_engines.execution_engine import ExecutionEngine, \
     ExecutionData
-from cosmic_ray.execution_engines.worker import Worker
-from cosmic_ray.workspaces import workspaces, \
-    execution_engines_workspace_config
-from cosmic_ray.workspaces.workspace import Workspace
+
 
 log = logging.getLogger(__name__)
 
 
-execution_engine_local_config = Config(
+execution_engines_cloning_config = Config(
     execution_engine_config,
-    'local',
-    valid_entries={},
-)
-
-
-execution_engines_local_cloning_config = Config(
-    execution_engine_local_config,
     'cloning',
     valid_entries={
         'method': Entry(default='copy', choices=('copy', 'git')),
@@ -75,66 +62,25 @@ execution_engines_local_cloning_config = Config(
 )
 
 
-@contextlib.contextmanager
-def excursion(dirname):
-    orig = os.getcwd()
-    try:
-        os.chdir(dirname)
-        yield
-    finally:
-        os.chdir(orig)
-
-
-class LocalWorker:
-
-    _test_command = None  # type: str
-    _timeout = None  # type: int
-    _workspace = None  # type: Workspace
-    _worker = None  # type: Worker
-
-    @classmethod
-    def initialize(cls, config):
-        # pylint: disable=global-statement
-        signal.signal(signal.SIGINT, signal.SIG_DFL)
-        execution_engine_config.set_config(config)
-
-
-        log.info('Initialize local-git worker in PID %s', os.getpid())
-        cls._workspace = workspaces[execution_engines_workspace_config['type']]
-
-        # Register a finalizer
-        multiprocessing.util.Finalize(cls._workspace,
-                                      cls._workspace.cleanup, exitpriority=16)
-
-        cls._worker = Worker()
-
-    @classmethod
-    def execute(cls, data: Union[ExecutionData, None]):
-        log.debug('execute_work_item (%s): %s', os.getpid(), data)
-
-        with excursion(cls._workspace.clone_dir):
-            result = cls._worker.worker(data)
-
-        return (data and data.job_id), result
-
-
 class LocalExecutionEngine(ExecutionEngine):
     """The local-git execution engine."""
 
     def __init__(self):
-        ignore_file = root_config[ 'session-file']
+        ignore_file = root_config['session-file']
         if os.path.abspath(ignore_file).startswith(os.path.abspath(os.getcwd())):
             ignore_file = os.path.basename(ignore_file)
             ignore_file = ''.join('[%s]' % c for c in ignore_file) + '.*'
-            execution_engines_local_cloning_config['ignore-files'].append(ignore_file)
+            execution_engines_cloning_config['ignore-files'].append(ignore_file)
+
+        prepared_data = RemoteEnvironment.prepare_local_side()
 
         self.executor = concurrent.futures.ProcessPoolExecutor(
-            initializer=LocalWorker.initialize,
-            initargs=(execution_engine_config.get_config(),)
+            initializer=RemoteEnvironment,
+            initargs=(execution_engine_config.get_config(), prepared_data)
         )
 
     async def execute(self, data: Union[ExecutionData, None]):
         log.debug("Execute %s", data)
 
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(self.executor, LocalWorker.execute, data)
+        return await loop.run_in_executor(self.executor, RemoteEnvironment.execute, data)

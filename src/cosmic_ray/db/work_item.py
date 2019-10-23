@@ -44,6 +44,21 @@ class WorkResult:
         self.outcome = outcome
         self.worker_outcome = worker_outcome
 
+    def to_dict(self):
+        return {
+            'outcome': self.outcome.name,
+            'worker_outcome': self.worker_outcome.name,
+            'output': self.output,
+        }
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            output=d['output'],
+            outcome=Outcome[d['outcome']],
+            worker_outcome=WorkerOutcome[d['worker_outcome']],
+        )
+
     def as_dict(self):
         "Get the WorkResult as a dict."
         return {

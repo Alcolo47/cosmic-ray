@@ -14,12 +14,15 @@ from cosmic_ray.execution_engines import execution_engine_config
 from cosmic_ray.execution_engines.execution_engine import ExecutionData
 from cosmic_ray.db.work_item import Outcome, WorkerOutcome, WorkResult
 from cosmic_ray.utils.config import Config, Entry
+from cosmic_ray.utils.util import excursion
 
 execution_engine_worker_config = Config(
     execution_engine_config,
     'worker',
     valid_entries= {
         'test-command': Entry(required=True),
+        'python-load': None,
+        'envs': {},
         'timeout': 10,
         'custom_commands_if_change_in': {
             '*/models.py': {
@@ -39,15 +42,28 @@ class CustomCommandError(Exception):
 
 class Worker:
 
-    def __init__(self):
-        self.test_command = execution_engine_worker_config['test-command']
-        self.timeout = execution_engine_worker_config['timeout']
+    def __init__(self, work_dir):
+        self._work_dir = work_dir
+        self._test_command = execution_engine_worker_config['test-command']
+        self._envs = execution_engine_worker_config['envs']
+        self._timeout = execution_engine_worker_config['timeout']
 
         self._files_with_custom_commands = {
             filename: (data['before'], data['after'])
             for gl, data in execution_engine_worker_config['custom_commands_if_change_in'].items()
             for filename in glob.iglob(gl, recursive=True)
         }  # type: Dict[str, Tuple[str]]
+
+
+        python_load = execution_engine_worker_config['python-load']
+        if python_load:
+            python_load = os.path.join(work_dir, python_load)
+            exec(open(python_load).read(), {'__file__': python_load})
+
+        self._envs = {
+            **os.environ,
+            **self._envs,
+        }
 
     # pylint: disable=R0913
     def worker(self, data: Union[ExecutionData, None]):
@@ -78,22 +94,23 @@ class Worker:
             will be reported using the 'exception' result-type in the return value.
 
         """
-        try:
-            with self.use_mutation(data):
-                outcome, output = self._run_tests(data)
-                return WorkResult(output=output,
-                                  outcome=outcome,
+        with excursion(self._work_dir):
+            try:
+                with self.use_mutation(data):
+                    outcome, output = self._run_tests(data)
+                    return WorkResult(output=output,
+                                      outcome=outcome,
+                                      worker_outcome=WorkerOutcome.NORMAL)
+
+            except CustomCommandError as ex:
+                return WorkResult(output=ex.outputs,
+                                  outcome=Outcome.KILLED,
                                   worker_outcome=WorkerOutcome.NORMAL)
 
-        except CustomCommandError as ex:
-            return WorkResult(output=ex.outputs,
-                              outcome=Outcome.KILLED,
-                              worker_outcome=WorkerOutcome.NORMAL)
-
-        except Exception as ex:  # noqaq # pylint: disable=broad-except
-            return WorkResult(output=traceback.format_exc(),
-                              outcome=Outcome.INCOMPETENT,
-                              worker_outcome=WorkerOutcome.EXCEPTION)
+            except Exception as ex:  # noqaq # pylint: disable=broad-except
+                return WorkResult(output=traceback.format_exc(),
+                                  outcome=Outcome.INCOMPETENT,
+                                  worker_outcome=WorkerOutcome.EXCEPTION)
 
     @contextmanager
     def use_mutation(self, data: Union[ExecutionData, None]):
@@ -114,7 +131,7 @@ class Worker:
         os.replace(filename, tmp_filename)
 
         try:
-            with data.filename.open(mode='wt', encoding='utf-8') as handle:
+            with open(filename, 'wt', encoding='utf-8') as handle:
                 handle.write(data.new_code)
             yield
 
@@ -154,24 +171,26 @@ class Worker:
         # notice them. If the timestamps between two changes are too small, Python won't recompile
         # the source.
         try:
-            if isinstance(self.test_command, str):
+            if isinstance(self._test_command, str):
                 proc = await asyncio.create_subprocess_shell(
-                    self.test_command,
+                    self._test_command,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.STDOUT,
+                    env=self._envs,
                 )
             else:
                 proc = await asyncio.create_subprocess_exec(
-                    *self.test_command,
+                    *self._test_command,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.STDOUT,
+                    env=self._envs,
                 )
 
         except Exception:  # pylint: disable=W0703
             return Outcome.INCOMPETENT, traceback.format_exc()
 
         try:
-            outs, errs = await asyncio.wait_for(proc.communicate(), self.timeout)
+            outs, errs = await asyncio.wait_for(proc.communicate(), self._timeout)
 
             assert proc.returncode is not None
 

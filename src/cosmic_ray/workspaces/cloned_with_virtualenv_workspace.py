@@ -30,36 +30,35 @@ class ClonedWithVirtualenvWorkspace(ClonedWorkspace):
         virtualenv.create_environment(str(self._venv_path))
 
     def _load_environment(self):
-        _activate(self._venv_path)
-        _install_sitecustomize(self._venv_path)
+        self._activate()
+        self._install_sitecustomize(self._venv_path)
+
+    def _activate(self):
+        """Activate a virtual environment in the current process.
+
+        This assumes a virtual environment that has a "activate_this.py" script, e.g.
+        one created with `virtualenv` and *not* `venv`.
+
+        Args:
+            _venv_path: Path of virtual environment to activate.
+        """
+        _home_dir, _lib_dir, _inc_dir, bin_dir = virtualenv.path_locations(str(self._venv_path))
+        activate_script = str(Path(bin_dir) / 'activate_this.py')
+
+        # This is the recommended way of activating venvs in a program:
+        # https://virtualenv.pypa.io/en/stable/userguide/#using-virtualenv-without-bin-python
+        exec(open(activate_script).read(), {'__file__': activate_script})  # pylint: disable=exec-used
 
 
-def _activate(venv_path):
-    """Activate a virtual environment in the current process.
-
-    This assumes a virtual environment that has a "activate_this.py" script, e.g.
-    one created with `virtualenv` and *not* `venv`.
-
-    Args:
-        venv_path: Path of virtual environment to activate.
-    """
-    _home_dir, _lib_dir, _inc_dir, bin_dir = virtualenv.path_locations(str(venv_path))
-    activate_script = str(Path(bin_dir) / 'activate_this.py')
-
-    # This is the recommended way of activating venvs in a program:
-    # https://virtualenv.pypa.io/en/stable/userguide/#using-virtualenv-without-bin-python
-    exec(open(activate_script).read(), {'__file__': activate_script})  # pylint: disable=exec-used
-
-
-_SITE_CUSTOMIZE = """
+    _SITE_CUSTOMIZE = """
 class {0}(Exception):
     pass
 
 __builtins__['{0}'] = {0}
-""".format(CosmicRayTestingException.__name__)
+    """.format(CosmicRayTestingException.__name__)
 
-
-def _install_sitecustomize(venv_path):
-    _home_dir, lib_dir, _inc_dir, _bin_dir = virtualenv.path_locations(str(venv_path))
-    with open(str(Path(lib_dir) / 'site-packages' / 'sitecustomize.py'), mode='wt', encoding='utf-8') as sc:
-        sc.write(_SITE_CUSTOMIZE)
+    @classmethod
+    def _install_sitecustomize(cls, venv_path):
+        _home_dir, lib_dir, _inc_dir, _bin_dir = virtualenv.path_locations(str(venv_path))
+        with open(str(Path(lib_dir) / 'site-packages' / 'sitecustomize.py'), mode='wt', encoding='utf-8') as sc:
+            sc.write(cls._SITE_CUSTOMIZE)

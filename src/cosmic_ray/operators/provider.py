@@ -47,7 +47,7 @@ _OPERATORS = {
             replace_boolean_operators.ReplaceBooleanOperatorTrueWithFalse,
             replace_break_continue_operators.ReplaceBreakWithContinueOperator,
             replace_break_continue_operators.ReplaceContinueWithBreakOperator,
-            replace_exception_operator.ReplaceExceptionoperator,
+            replace_exception_operator.ReplaceExceptionOperator,
             replace_logical_operators.ReplaceLogicalOperatorAddNot,
             replace_logical_operators.ReplaceLogicalOperatorAndWithOr,
             replace_logical_operators.ReplaceLogicalOperatorOrWithAnd,

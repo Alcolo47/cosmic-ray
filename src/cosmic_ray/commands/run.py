@@ -134,8 +134,8 @@ def on_signal(sig, callable):
     yield
     signal.signal(sig, old)
 
-class Run:
 
+class Run:
     def __init__(self, work_db: WorkDB):
         """Clear and initialize a work-db with work items.
 
@@ -150,6 +150,7 @@ class Run:
         self.execution_engine = execution_engines[execution_engine_config['type']]  # type: ExecutionEngine
         self.operators = operators.values()
         self.interceptors = interceptors
+        self.exit_code = 0
 
     def run(self, module_paths):
         """
@@ -166,7 +167,11 @@ class Run:
         except CancelledError:
             pass
 
+        return self.exit_code
+
     async def run_async(self, module_paths):
+
+        await self.execution_engine.init()
 
         if execution_engine_config['run-with-no-mutation']:
             future = asyncio.ensure_future(self.execution_engine.execute(None))
@@ -208,6 +213,7 @@ class Run:
         for t in asyncio.all_tasks():
             if t is not asyncio.current_task():
                 t.cancel()
+        self.exit_code = 1
 
     def on_break(self, *args):
         print("Break requested: cancelling all runs")

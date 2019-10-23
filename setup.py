@@ -48,6 +48,7 @@ INSTALL_REQUIRES = [
     'virtualenv',
     'yattag',
     'anybadge',
+    'mitogen',
 ]
 
 version = read_version()[0]
@@ -110,6 +111,7 @@ setup(
 
         'cosmic_ray.execution_engines': [
             'local = cosmic_ray.execution_engines.local_execution_engine:LocalExecutionEngine',
+            'ssh = cosmic_ray.execution_engines.ssh_execution_engine:SshExecutionEngine',
        ],
 
         'cosmic_ray.workspaces': [

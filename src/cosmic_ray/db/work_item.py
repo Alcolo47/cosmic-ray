@@ -2,7 +2,8 @@
 """
 import enum
 import json
-import pathlib
+
+from cosmic_ray.utils.serializable import Serializable
 
 
 class StrEnum(str, enum.Enum):
@@ -28,7 +29,7 @@ class Outcome(StrEnum):
     INCOMPETENT = 'incompetent'
 
 
-class WorkResult:
+class WorkResult(Serializable):
     """The result of a single mutation and test run.
     """
 
@@ -59,24 +60,11 @@ class WorkResult:
             worker_outcome=WorkerOutcome[d['worker_outcome']],
         )
 
-    def as_dict(self):
-        "Get the WorkResult as a dict."
-        return {
-            'output': self.output,
-            'outcome': self.outcome,
-            'worker_outcome': self.worker_outcome,
-        }
-
     @property
     def is_killed(self):
-        "Whether the mutation should be considered 'killed'"
+        """Whether the mutation should be considered 'killed'
+        """
         return self.outcome != Outcome.SURVIVED
-
-    def __eq__(self, rhs):
-        return self.as_dict() == rhs.as_dict()
-
-    def __neq__(self, rhs):
-        return not self == rhs
 
     def __repr__(self):
         return "<WorkResult {outcome}/{worker_outcome}: '{output}'>".format(
@@ -85,20 +73,19 @@ class WorkResult:
             output=self.output)
 
 
-class WorkItem:
+class WorkItem(Serializable):
     """Description of the work for a single mutation and test run.
     """
 
     # pylint: disable=R0913
     def __init__(self,
                  job_id,
-                 module_path,
+                 module_path: str,
                  operator_name,
                  occurrence,
                  start_pos,
                  end_pos,
-                 diff=None,
-            ):
+                 diff=None):
         if start_pos[0] > end_pos[0]:
             raise ValueError('Start line must not be after end line')
 
@@ -107,28 +94,12 @@ class WorkItem:
                 raise ValueError('End position must come after start position.')
 
         self.job_id = job_id
-        self.module_path = pathlib.Path(module_path)
+        self.module_path = module_path
         self.operator_name = operator_name
         self.occurrence = occurrence
         self.start_pos = start_pos
         self.end_pos = end_pos
         self.diff = diff
-
-    def as_dict(self):
-        """Get fields as a dict.
-        """
-        return {
-            'module_path': str(self.module_path),
-            'operator_name': self.operator_name,
-            'occurrence': self.occurrence,
-            'start_pos': self.start_pos,
-            'end_pos': self.end_pos,
-            'diff': self.diff,
-            'job_id': self.job_id,
-        }
-
-    def __eq__(self, rhs):
-        return self.as_dict() == rhs.as_dict()
 
     def __str__(self):
         return "%s(%s)" % (self.operator_name, self.occurrence)
@@ -149,10 +120,10 @@ class WorkItemJsonEncoder(json.JSONEncoder):
 
     def default(self, o):  # pylint: disable=E0202
         if isinstance(o, WorkItem):
-            return {"_type": "WorkItem", "values": o.as_dict()}
+            return {"_type": "WorkItem", "values": o.to_dict()}
 
         if isinstance(o, WorkResult):
-            return {"_type": "WorkResult", "values": o.as_dict()}
+            return {"_type": "WorkResult", "values": o.to_dict()}
 
         return super().default(o)
 

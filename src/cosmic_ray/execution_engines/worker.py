@@ -1,30 +1,33 @@
 """This is the body of the low-level worker tool.
 """
 import glob
+import logging
 import os
 import sys
 import asyncio
 import traceback
 from contextlib import contextmanager
-from subprocess import check_call, Popen, PIPE, STDOUT
-from typing import Dict, Tuple
+from subprocess import run, CalledProcessError
+from typing import Dict, Tuple, List
 from typing import Union
 
-from cosmic_ray.execution_engines import execution_engine_config
-from cosmic_ray.execution_engines.execution_engine import ExecutionData
+from cosmic_ray.execution_engines.execution_engine import ExecutionData, \
+    execution_engine_config
 from cosmic_ray.db.work_item import Outcome, WorkerOutcome, WorkResult
 from cosmic_ray.utils.config import Config, Entry
 from cosmic_ray.utils.util import excursion
+
+
+log = logging.getLogger(__name__)
 
 execution_engine_worker_config = Config(
     execution_engine_config,
     'worker',
     valid_entries= {
         'test-command': Entry(required=True),
-        'python-load': None,
         'envs': {},
         'timeout': 10,
-        'custom_commands_if_change_in': {
+        'custom-commands-if-change-in': {
             '*/models.py': {
                 'before': 'rm -f */migrations/[0-9]* && manage.py makemigrations',
                 'after': 'git checkout -f */migrations/*',
@@ -48,22 +51,19 @@ class Worker:
         self._envs = execution_engine_worker_config['envs']
         self._timeout = execution_engine_worker_config['timeout']
 
-        self._files_with_custom_commands = {
-            filename: (data['before'], data['after'])
-            for gl, data in execution_engine_worker_config['custom_commands_if_change_in'].items()
-            for filename in glob.iglob(gl, recursive=True)
-        }  # type: Dict[str, Tuple[str]]
-
-
-        python_load = execution_engine_worker_config['python-load']
-        if python_load:
-            python_load = os.path.join(work_dir, python_load)
-            exec(open(python_load).read(), {'__file__': python_load})
+        with excursion(work_dir):
+            self._files_with_custom_commands = {
+                filename: (data['before'], data['after'])
+                for gl, data in execution_engine_worker_config['custom-commands-if-change-in'].items()
+                for filename in glob.iglob(gl, recursive=True)
+            }  # type: Dict[str, Tuple[Union[str, List[str]]]]
 
         self._envs = {
             **os.environ,
             **self._envs,
         }
+
+        self._hz = os.sysconf(os.sysconf_names['SC_CLK_TCK'])
 
     # pylint: disable=R0913
     def worker(self, data: Union[ExecutionData, None]):
@@ -126,7 +126,7 @@ class Worker:
             yield
             return
 
-        filename = str(data.filename)
+        filename = data.filename
         tmp_filename = filename + '.TMP'
         os.replace(filename, tmp_filename)
 
@@ -145,31 +145,41 @@ class Worker:
             for n in glob.iglob(pyc):
                 os.unlink(n)
 
-
     @contextmanager
     def custom_commands(self, data: Union[ExecutionData, None]):
-        commands = data and self._files_with_custom_commands.get(str(data.filename))
+        commands = data and self._files_with_custom_commands.get(data.filename)
         if commands:
             try:
-                cmd = commands[0]
-                p = Popen(cmd, shell=isinstance(cmd, str), stdout= PIPE, stderr=STDOUT)
-                outputs = p.stdout.read()
-                if p.wait() != 0:
-                    raise CustomCommandError(cmd, outputs.decode('utf-8'))
-
+                self._run_cmd(commands[0], data.filename)
                 yield
 
-            finally:
-                cmd = commands[1]
-                check_call(cmd, shell=isinstance(cmd, str))
+            except CalledProcessError as ex:
+                raise CustomCommandError(commands[0], ex.stdout) from ex
 
+            finally:
+                self._run_cmd(commands[1], data.filename)
         else:
             yield
+
+    @staticmethod
+    def _run_cmd(cmd: Union[str, List[str]], filename):
+        if isinstance(cmd, str):
+            log.debug("Running %s  (for file %s)", cmd, filename)
+            shell = True
+        else:
+            cmd = cmd + [filename]
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug("Running %s", ' ' .join(cmd))
+            shell = False
+
+        return run(cmd, shell=shell, check=True, capture_output=True)
+
 
     async def _async_run_tests(self):
         # We want to avoid writing pyc files in case our changes happen too fast for Python to
         # notice them. If the timestamps between two changes are too small, Python won't recompile
         # the source.
+        proc = None
         try:
             if isinstance(self._test_command, str):
                 proc = await asyncio.create_subprocess_shell(
@@ -189,26 +199,42 @@ class Worker:
         except Exception:  # pylint: disable=W0703
             return Outcome.INCOMPETENT, traceback.format_exc()
 
-        try:
-            outs, errs = await asyncio.wait_for(proc.communicate(), self._timeout)
+        else:
+            timeout = self._timeout
+            waited = 0
+            while True:
+                try:
+                    outs, errs = await asyncio.wait_for(proc.communicate(), timeout)
 
-            assert proc.returncode is not None
+                    assert proc.returncode is not None
 
-            if proc.returncode == 0:
-                return Outcome.SURVIVED, outs.decode('utf-8')
-            else:
-                return Outcome.KILLED, outs.decode('utf-8')
+                    if proc.returncode == 0:
+                        return Outcome.SURVIVED, outs.decode('utf-8')
+                    else:
+                        return Outcome.KILLED, outs.decode('utf-8')
 
-        except asyncio.TimeoutError:
-            proc.terminate()
-            return Outcome.KILLED, 'timeout'
+                except asyncio.TimeoutError:
+                    waited += timeout
+                    cutime = self._get_cutime(proc.pid)
+                    if cutime < self._timeout:
+                        # Wait again
+                        if waited > 0:
+                            timeout = (self._timeout * waited / cutime) - waited
+                            # Add 10% of extra time to avoid asymptotic convergence
+                            timeout *= 1.1
+                        else:
+                            timeout = self._timeout
+                    else:
+                        proc.terminate()
+                        return Outcome.KILLED, 'timeout'
 
-        except Exception:  # pylint: disable=W0703
-            proc.terminate()
-            return Outcome.INCOMPETENT, traceback.format_exc()
+                except Exception:  # pylint: disable=W0703
+                    proc.terminate()
+                    return Outcome.INCOMPETENT, traceback.format_exc()
 
         finally:
-            await proc.wait()
+            if proc:
+                await proc.wait()
 
     def _run_tests(self, data: Union[ExecutionData, None]):
         """Run test command in a subprocess.
@@ -227,7 +253,12 @@ class Worker:
             asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
         with self.custom_commands(data):
-            result = asyncio.get_event_loop().run_until_complete(
-                self._async_run_tests()
-            )
+            result = asyncio.get_event_loop().run_until_complete(self._async_run_tests())
         return result
+
+    def _get_cutime(self, pid):
+        with open("/proc/%d/stat" % pid) as f:
+            # [13:17] == utime, stime, cutime, cstime
+            val = f.read().split(' ')[15]
+            cutime = (float(val) / self._hz)
+            return cutime

@@ -9,11 +9,12 @@ from cosmic_ray.commands.badge import badge_config
 from cosmic_ray.commands.html import report_html_config
 from cosmic_ray.execution_engines.worker import execution_engine_worker_config
 from cosmic_ray.utils.config import root_config
-from cosmic_ray.execution_engines import execution_engines, \
+from cosmic_ray.execution_engines import execution_engines
+from cosmic_ray.execution_engines.execution_engine import \
     execution_engine_config
 from cosmic_ray.interceptors import interceptors
 from cosmic_ray.operators import operators
-from cosmic_ray.workspaces import workspaces
+
 
 MODULE_PATH_HELP = """The path to the module that will be mutated.
 
@@ -68,7 +69,7 @@ def new_config():
     operators.values()
     interceptors.values()
     execution_engines.values()
-    workspaces.values()
+
     v = badge_config.valid_entries
     v = report_html_config.valid_entries
 

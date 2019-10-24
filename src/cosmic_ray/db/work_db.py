@@ -5,6 +5,7 @@ import contextlib
 import os
 import sqlite3
 from enum import Enum
+from typing import Iterable, Tuple
 
 from cosmic_ray.utils.config import deserialize_config
 from cosmic_ray.utils.config import serialize_config
@@ -251,7 +252,7 @@ def _work_item_column():
 
 def _work_item_to_row(work_item: WorkItem):
     return (
-        str(work_item.module_path),
+        work_item.module_path,
         work_item.operator_name,
         work_item.occurrence,
         work_item.start_pos[0],

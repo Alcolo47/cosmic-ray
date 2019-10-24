@@ -1,4 +1,3 @@
-from pathlib import Path
 from cosmic_ray.db.work_item import WorkResult, WorkItem, WorkerOutcome
 
 
@@ -11,7 +10,7 @@ class TestWorkResult:
 class TestWorkItem:
     def test_repr(self):
         item = WorkItem(
-            module_path=Path('.'),
+            module_path='.',
             operator_name='core/NoOp',
             occurrence=0,
             start_pos=(1, 1),

@@ -48,8 +48,8 @@ def generate_badge(work_db: WorkDB, badge_filename):
     except OSError:
         pass
 
-    dir = os.path.dirname(badge_filename)
-    if dir:
-        os.makedirs(dir, exist_ok=True)
+    directory = os.path.dirname(badge_filename)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
 
     badge.write_badge(badge_filename)

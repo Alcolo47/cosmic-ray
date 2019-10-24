@@ -1,5 +1,6 @@
 """Tools for working with parso ASTs."""
 from abc import ABC, abstractmethod
+from typing import Union
 
 import parso.python.tree
 import parso.tree
@@ -26,22 +27,22 @@ class Visitor(ABC):
         """Called for each node in the walk."""
 
 
-def get_ast(module_path, python_version):
+def get_ast(module_path: str, python_version):
     """Get the AST for the code in a file.
 
     Args:
-        module_path: pathlib.Path to the file containing the code.
+        module_path: File containing the code.
         python_version: Python version as a "MAJ.MIN" string.
 
     Returns: The parso parse tree for the code in `module_path`.
     """
-    with module_path.open(mode='rt', encoding='utf-8') as handle:
+    with open(module_path, mode='rt', encoding='utf-8') as handle:
         source = handle.read()
 
     return parso.parse(source, version=python_version)
 
 
-def get_comment_on_node_line(node) -> str or None:
+def get_comment_on_node_line(node) -> Union[str, None]:
     """
     From a parso node, get the comment on the node line
     and return the comment
@@ -64,16 +65,19 @@ def get_comment_on_node_line(node) -> str or None:
 
 
 def is_none(node):
-    "Determine if a node is the `None` keyword."
+    """Determine if a node is the `None` keyword.
+    """
     return isinstance(node, parso.python.tree.Keyword) and node.value == 'None'
 
 
 def is_number(node):
-    "Determine if a node is a number."
+    """Determine if a node is a number.
+    """
     return isinstance(node, parso.python.tree.Number)
 
 
 def is_string(node):
-    "Determine if a node is a string."
-    return isinstance(node, (parso.python.tree.String)) or \
+    """Determine if a node is a string.
+    """
+    return isinstance(node, parso.python.tree.String) or \
            (isinstance(node, parso.python.tree.PythonNode) and node.type == 'fstring')

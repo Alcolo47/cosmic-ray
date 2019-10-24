@@ -1,6 +1,7 @@
 """Tests for config loading functions.
 """
 import io
+import os
 
 import pytest
 
@@ -23,18 +24,18 @@ def test_load_non_existent_file_raises_ConfigError():
         load_config('/foo/bar/this/does/no-exist/I/hope')
 
 
-def test_load_from_invalid_config_file_raises_ConfigError(tmpdir):
-    config_path = tmpdir / 'config.yml'
-    with config_path.open(mode='wt', encoding='utf-8') as handle:
+def test_load_from_invalid_config_file_raises_ConfigError(tmpdir: str):
+    config_path = os.path.join(tmpdir, 'config.yml')
+    with open(config_path, mode='wt', encoding='utf-8') as handle:
         handle.write('{asdf')
     with pytest.raises(ConfigError):
-        load_config(str(config_path))
+        load_config(config_path)
 
 
-def test_load_from_non_utf8_file_raises_ConfigError(tmpdir):
-    config_path = tmpdir / 'config.conf'
+def test_load_from_non_utf8_file_raises_ConfigError(tmpdir: str):
+    config_path = os.path.join(tmpdir, 'config.conf')
     config = {'key': 'value'}
-    with config_path.open(mode='wb') as handle:
+    with open(config_path, mode='wb') as handle:
         handle.write(serialize_config(config).encode('utf-16'))
     with pytest.raises(ConfigError):
-        load_config(str(config_path))
+        load_config(config_path)

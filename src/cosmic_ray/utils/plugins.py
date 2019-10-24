@@ -32,7 +32,3 @@ def get_interceptors():
 
 def get_execution_engines():
     yield from _get_extensions('cosmic_ray.execution_engines')
-
-
-def get_execution_workspace():
-    yield from _get_extensions('cosmic_ray.workspaces')

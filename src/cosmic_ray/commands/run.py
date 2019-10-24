@@ -4,17 +4,18 @@ import logging
 import signal
 import uuid
 from asyncio import Future, CancelledError
+from asyncio import Task
 from contextlib import contextmanager
 
 import sys
+from typing import List, Iterable
+
 from parso.tree import NodeOrLeaf, BaseNode
-from pathlib import Path
 
 from cosmic_ray.db.work_item import WorkResult, Outcome
-from cosmic_ray.execution_engines import execution_engines, \
-    execution_engine_config
+from cosmic_ray.execution_engines import execution_engines
 from cosmic_ray.execution_engines.execution_engine import ExecutionEngine, \
-    ExecutionData
+    ExecutionData, execution_engine_config
 from cosmic_ray.interceptors import interceptors
 from cosmic_ray.utils.ast import get_ast, Visitor
 from cosmic_ray.utils.config import root_config
@@ -38,11 +39,12 @@ class RunVisitor(Visitor):
     """
 
     def __init__(self, module_path, work_db, operator,
-                 interceptors: Interceptors, execution_engine: ExecutionEngine):
-        if isinstance(module_path, str):
-            module_path = Path(module_path)
+                 interceptors: Interceptors,
+                 execution_engine: ExecutionEngine,
+                 tasks: List[Task]):
         self.operator = operator  # type: Operator
-        self.module_path = module_path
+        self.module_path = module_path  # type: str
+        self.tasks = tasks
         self.work_db = work_db  # type: WorkDB
         self.occurrence = 0
         self._interceptors = interceptors
@@ -65,7 +67,7 @@ class RunVisitor(Visitor):
             if self._interceptors.new_mutation(self.operator, target_node):
                 work_item = WorkItem(
                     job_id=uuid.uuid4().hex,
-                    module_path=str(self.module_path),
+                    module_path=self.module_path,
                     operator_name=self.operator.name,
                     occurrence=self.occurrence,
                     start_pos=start,
@@ -88,6 +90,7 @@ class RunVisitor(Visitor):
                                                    new_code=new_code)
                     future = asyncio.ensure_future(self.execution_engine.execute(execution_data))
                     future.add_done_callback(self._on_task_complete)
+                    self.tasks.append(future)
                     await asyncio.sleep(0)
 
     @staticmethod
@@ -121,8 +124,8 @@ class RunVisitor(Visitor):
         for line in difflib.unified_diff(
                 original_source.split('\n'),
                 mutated_source.split('\n'),
-                fromfile="a" + str(module_path),
-                tofile="b" + str(module_path),
+                fromfile="a" + module_path,
+                tofile="b" + module_path,
                 lineterm=""):
             module_diff.append(line)
         return module_diff
@@ -150,13 +153,10 @@ class Run:
         self.execution_engine = execution_engines[execution_engine_config['type']]  # type: ExecutionEngine
         self.operators = operators.values()
         self.interceptors = interceptors
+        self.tasks = []  # type: List[Task]
         self.exit_code = 0
 
-    def run(self, module_paths):
-        """
-        :type module_paths: iterable of pathlib.Paths of modules to mutate.
-        :return:
-        """
+    def run(self, module_paths: Iterable[str]):
         self.work_db.set_config(config=root_config.get_config())
         self.work_db.clear()
 
@@ -173,16 +173,20 @@ class Run:
 
         await self.execution_engine.init()
 
-        if execution_engine_config['run-with-no-mutation']:
-            future = asyncio.ensure_future(self.execution_engine.execute(None))
-            future.add_done_callback(self._on_no_mutation_task_complete)
+        try:
+            if execution_engine_config['run-with-no-mutation']:
+                future = asyncio.ensure_future(self.execution_engine.execute(None))
+                future.add_done_callback(self._on_no_mutation_task_complete)
 
-        for module_path in module_paths:
-            module_ast = get_ast(module_path, python_version=root_config['python-version'])
-            await self.visit_module(module_path, module_ast)
+            for module_path in module_paths:
+                module_ast = get_ast(module_path, python_version=root_config['python-version'])
+                await self.visit_module(module_path, module_ast)
 
-        self.execution_engine.close()
-        await asyncio.gather(*(t for t in asyncio.all_tasks() if t is not asyncio.current_task()))
+            await asyncio.gather(*self.tasks)
+            await self.execution_engine.no_more_jobs()
+
+        finally:
+            self.execution_engine.close()
 
     async def visit_module(self, module_path, module_ast):
         if self.interceptors.pre_scan_module_path(module_path):
@@ -193,6 +197,7 @@ class Run:
                     interceptors=self.interceptors,
                     operator=operator,
                     execution_engine=self.execution_engine,
+                    tasks=self.tasks,
                 )
                 await visitor.walk(module_ast)
 

@@ -1,9 +1,8 @@
-import os
 import re
 import shutil
 from logging import getLogger
 
-from cosmic_ray.workspaces.cloner import Cloner
+from cosmic_ray.execution_engines.cloner import Cloner
 
 log = getLogger(__name__)
 
@@ -11,10 +10,10 @@ log = getLogger(__name__)
 class CopyCloner(Cloner):
 
     def __init__(self):
-        from cosmic_ray.execution_engines.local_execution_engine import \
-            execution_engines_cloning_config
-        self.src_path = os.getcwd()
-        ignore_files = execution_engines_cloning_config['ignore-files']
+        from cosmic_ray.execution_engines.remote_environment import \
+            execution_engine_cloning_config
+        self.src_path = execution_engine_cloning_config['src-dir']
+        ignore_files = execution_engine_cloning_config['ignore-files']
         self.ignore_files = ignore_files
 
     def clone(self, dest_path):
@@ -23,7 +22,7 @@ class CopyCloner(Cloner):
         Args:
             dest_path: The location to copy the directory to.
         """
-        log.info('Cloning directory tree %s to %s', self.src_path, dest_path)
+        log.debug('Cloning directory tree %s to %s', self.src_path, dest_path)
 
         if self.ignore_files:
             s = '|'.join('(?:%s)' % f for f in self.ignore_files)

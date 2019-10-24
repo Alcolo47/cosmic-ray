@@ -2,9 +2,9 @@ import os
 from logging import getLogger
 from subprocess import Popen, PIPE
 
-from cosmic_ray.execution_engines.local_execution_engine import \
-    execution_engines_cloning_config
-from cosmic_ray.workspaces.cloner import Cloner
+from cosmic_ray.execution_engines.remote_environment import \
+    execution_engine_cloning_config
+from cosmic_ray.execution_engines.cloner import Cloner
 
 
 log = getLogger(__name__)
@@ -14,7 +14,7 @@ class TarCloner(Cloner):
 
     @classmethod
     def prepare_local_side(cls):
-        re_exclude = execution_engines_cloning_config['ignore-files']
+        re_exclude = execution_engine_cloning_config['ignore-files']
         re_exclude = '|'.join('(.*/|)%s' % s for s in re_exclude)
 
         p1 = Popen(('find',
@@ -40,12 +40,9 @@ class TarCloner(Cloner):
 
     def clone(self, dest_path):
         os.makedirs(dest_path, exist_ok=True)
-        log.info("untar file in %s", dest_path)
+        log.debug("untar file in %s", dest_path)
 
-        with open(os.path.join(dest_path, 'in.tgz'), 'wb') as f:
-            f.write(self.tar)
-
-        p = Popen(('tar', 'xzfC', '-', dest_path), stdin=PIPE)
+        p = Popen(('tar', 'xz', '-f', '-', '-C', dest_path), stdin=PIPE)
         tar = self.tar
         while tar:
             tar = tar[p.stdin.write(tar):]

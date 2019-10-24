@@ -1,4 +1,5 @@
-"A tool for generating HTML reports."
+"""A tool for generating HTML reports.
+"""
 
 import datetime
 
@@ -171,7 +172,7 @@ def generate_html_report(db, only_completed, skip_success):
                                                     with tag('pre', klass='location'):
                                                         with tag('a',
                                                                  href=_pycharm_url(
-                                                                     str(work_item.module_path),
+                                                                     work_item.module_path,
                                                                      work_item.start_pos[0]), klass='text-secondary'):
                                                             with tag('button', klass='btn btn-outline-dark'):
                                                                 text('{}, start pos: {}, end pos: {}'.
@@ -256,5 +257,6 @@ def generate_html_report(db, only_completed, skip_success):
 
 
 def _pycharm_url(filename, line_number):
-    "Get a URL for opening a file in Pycharm."
+    """Get a URL for opening a file in Pycharm.
+    """
     return 'pycharm://open?file={}&line={}'.format(filename, line_number)

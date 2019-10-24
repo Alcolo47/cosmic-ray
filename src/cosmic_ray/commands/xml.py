@@ -3,7 +3,8 @@
 
 import xml.etree.ElementTree
 
-from cosmic_ray.db.work_item import Outcome, WorkerOutcome
+from cosmic_ray.db.work_item import Outcome, WorkerOutcome, WorkItem, \
+    WorkResult
 
 
 def generate_xml_report(db):
@@ -12,7 +13,7 @@ def generate_xml_report(db):
     skipped = 0
     root_elem = xml.etree.ElementTree.Element('testsuite')
 
-    for work_item, result in db.completed_work_items:
+    for work_item, result in db.completed_work_items:  # type: WorkItem, WorkResult
         if result.worker_outcome in {
                 WorkerOutcome.EXCEPTION, WorkerOutcome.ABNORMAL
         }:
@@ -23,7 +24,7 @@ def generate_xml_report(db):
             skipped += 1
 
         sub_element = _create_element_from_work_item(work_item)
-        sub_element = _update_element_with_result(sub_element, result)
+        sub_element = _update_element_with_result(sub_element, work_item, result)
         root_elem.append(sub_element)
 
     for work_item in db.pending_work_items:
@@ -37,7 +38,7 @@ def generate_xml_report(db):
     return xml.etree.ElementTree.ElementTree(root_elem)
 
 
-def _create_element_from_work_item(work_item):
+def _create_element_from_work_item(work_item: WorkItem):
     sub_elem = xml.etree.ElementTree.Element('testcase')
 
     sub_elem.set('classname', work_item.job_id)
@@ -47,18 +48,18 @@ def _create_element_from_work_item(work_item):
     return sub_elem
 
 
-def _update_element_with_result(sub_elem, result):
+def _update_element_with_result(sub_elem, work_item: WorkItem, result: WorkResult):
     data = result.output
     outcome = result.worker_outcome
 
     if outcome == WorkerOutcome.EXCEPTION:
         error_elem = xml.etree.ElementTree.SubElement(sub_elem, 'error')
         error_elem.set('message', "Worker has encountered exception")
-        error_elem.text = str(data) + "\n".join(result.diff)
+        error_elem.text = str(data) + "\n".join(work_item.diff)
     elif _evaluation_success(result):
         failure_elem = xml.etree.ElementTree.SubElement(sub_elem, 'failure')
         failure_elem.set('message', "Mutant has survived your unit tests")
-        failure_elem.text = str(data) + result.diff
+        failure_elem.text = str(data) + work_item.diff
 
     return sub_elem
 

@@ -37,41 +37,19 @@ creating the configuration.
 import asyncio
 import concurrent.futures
 import logging
-import os
 from typing import Union
 
 from cosmic_ray.execution_engines.remote_environment import RemoteEnvironment
-from cosmic_ray.utils.config import Config, root_config, Entry
-from cosmic_ray.execution_engines import execution_engine_config
 from cosmic_ray.execution_engines.execution_engine import ExecutionEngine, \
-    ExecutionData
-
+    ExecutionData, execution_engine_config
 
 log = logging.getLogger(__name__)
-
-
-execution_engines_cloning_config = Config(
-    execution_engine_config,
-    'cloning',
-    valid_entries={
-        'method': Entry(default='copy', choices=('copy', 'git')),
-        'commands': Entry(required=True),
-        'repo-uri': None,
-        'ignore-files': []
-    },
-)
 
 
 class LocalExecutionEngine(ExecutionEngine):
     """The local-git execution engine."""
 
     def __init__(self):
-        ignore_file = root_config['session-file']
-        if os.path.abspath(ignore_file).startswith(os.path.abspath(os.getcwd())):
-            ignore_file = os.path.basename(ignore_file)
-            ignore_file = ''.join('[%s]' % c for c in ignore_file) + '.*'
-            execution_engines_cloning_config['ignore-files'].append(ignore_file)
-
         prepared_data = RemoteEnvironment.prepare_local_side()
 
         self.executor = concurrent.futures.ProcessPoolExecutor(

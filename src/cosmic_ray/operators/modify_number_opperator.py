@@ -29,7 +29,7 @@ class ModifyNumberOperator(Operator):
         assert isinstance(node, parso.python.tree.Number)
 
         val = eval(node.value) + OFFSETS[index]  # pylint: disable=W0123
-        return parso.python.tree.Number(' ' + str(val), node.start_pos)
+        return parso.python.tree.Number(' %s' % val, node.start_pos)
 
     @classmethod
     def examples(cls):

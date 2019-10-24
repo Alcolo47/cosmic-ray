@@ -1,21 +1,13 @@
-from pathlib import Path
+import os
 import sys
-
 import pytest
 
 
 @pytest.fixture
-def tmpdir_path(tmpdir):
-    """A temporary directory as a pathlib.Path.
+def session(tmpdir):
+    """A temp session file
     """
-    return Path(str(tmpdir))
-
-
-@pytest.fixture
-def session(tmpdir_path):
-    """A temp session file (pathlib.Path)
-    """
-    return str(tmpdir_path / 'cosmic-ray.sqlite')
+    return os.path.join(tmpdir, 'cosmic-ray.sqlite')
 
 
 @pytest.fixture

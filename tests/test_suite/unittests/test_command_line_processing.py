@@ -1,7 +1,6 @@
-"Tests for the command line interface and return codes."
-
-# pylint: disable=C0111,W0621,W0613
-
+"""Tests for the command line interface and return codes.
+"""
+import os
 from exit_codes import ExitCode
 import pytest
 
@@ -15,7 +14,7 @@ import cosmic_ray.execution_engines.worker
 
 @pytest.fixture
 def config_file(tmpdir):
-    return str(tmpdir.join('config.toml'))
+    return os.path.join(tmpdir, 'config.toml')
 
 
 def _make_config(test_command='python -m unittest discover tests',
@@ -32,7 +31,7 @@ def _make_config(test_command='python -m unittest discover tests',
 
 
 @pytest.fixture
-def local_unittest_config(config_file):
+def local_unittest_config(config_file: str):
     """Creates a valid config file for local, unittest-based execution, returning
     the path to the config.
     """
@@ -45,7 +44,8 @@ def local_unittest_config(config_file):
 
 @pytest.fixture
 def lobotomize(monkeypatch):
-    "Short-circuit some of CR's core functionality to make testing simpler."
+    """Short-circuit some of CR's core functionality to make testing simpler.
+    """
     # This effectively prevent init from actually trying to scan the module in the config.
     monkeypatch.setattr(cosmic_ray.utils.modules, 'find_modules', lambda *args: [])
 

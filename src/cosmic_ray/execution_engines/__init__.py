@@ -1,16 +1,5 @@
-from cosmic_ray.utils.config import Config, root_config, Entry
 from cosmic_ray.utils.util import LazyDict
 from cosmic_ray.execution_engines.execution_engine import ExecutionEngine
-
-
-execution_engine_config = Config(
-    root_config,
-    'execution-engine',
-    valid_entries={
-        'type': 'local',
-        'run-with-no-mutation': Entry(default=False),
-    },
-)
 
 
 class ExecutionEngines(LazyDict):

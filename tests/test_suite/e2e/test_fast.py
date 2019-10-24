@@ -1,4 +1,4 @@
-import pathlib
+import os
 import subprocess
 import sys
 
@@ -10,11 +10,10 @@ from cosmic_ray.utils.survival_rate import survival_rate
 
 @pytest.fixture(scope="session")
 def project_root(pytestconfig):
-    root = pathlib.Path(str(pytestconfig.rootdir))
-    return root / ".." / "fast_tests"
+    return os.path.join(pytestconfig.rootdir, "..", "fast_tests")
 
 
-def test_fast_tests(project_root, session):
+def test_fast_tests(project_root: str, session):
     """This tests that CR works correctly on suites that execute very rapidly.
 
     A single mutation-test round can be faster than the resolution of file timestamps for some filesystems. When this
@@ -23,9 +22,9 @@ def test_fast_tests(project_root, session):
     """
     subprocess.check_call(
         [sys.executable, "-m", "cosmic_ray.cli", "run", "--session", session, "cr.conf"],
-        cwd=str(project_root))
+        cwd=project_root)
 
-    session_path = project_root / session
-    with use_db(str(session_path), WorkDB.Mode.open) as work_db:
+    session_path = os.path.join(project_root, session)
+    with use_db(session_path, WorkDB.Mode.open) as work_db:
         rate = survival_rate(work_db)
         assert round(rate, 2) == 15.38

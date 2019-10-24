@@ -2,20 +2,21 @@
 
 """Setup for Cosmic Ray.
 """
-import io
 import os
 
 from setuptools import setup, find_packages
 
 
 def local_file(*name):
-    "Find a file relative to this directory."
+    """Find a file relative to this directory.
+    """
     return os.path.join(os.path.dirname(__file__), *name)
 
 
 def read(name, **kwargs):
-    "Read the contents of a file."
-    with io.open(name, encoding=kwargs.get("encoding", "utf8")) as handle:
+    """Read the contents of a file.
+    """
+    with open(name, encoding=kwargs.get("encoding", "utf8")) as handle:
         return handle.read()
 
 
@@ -23,29 +24,26 @@ def read(name, **kwargs):
 # couldn't find a way to use the original version and still have tox
 # work...hmmm...
 def read_version():
-    "Read the `(version-string, version-info)` from `src/cosmic_ray/version.py`."
+    """Read the `(version-string, version-info)` from `src/cosmic_ray/version.py`.
+    """
     version_file = local_file('src', 'cosmic_ray', 'version.py')
     local_vars = {}
     with open(version_file) as handle:
         exec(handle.read(), {}, local_vars)  # pylint: disable=exec-used
-    return (local_vars['__version__'], local_vars['__version_info__'])
+    return local_vars['__version__'], local_vars['__version_info__']
 
 
 LONG_DESCRIPTION = read(local_file('README.rst'), mode='rt')
 
 INSTALL_REQUIRES = [
-    'astunparse',
-    'decorator',
     'docopt_subcommands>=3.0.0,<4.0.0',
     'exit_codes',
     'gitpython',
     'parso',
-    'pathlib',
     'qprompt',
     'spor>=1.1.0',
     'stevedore',
     'toml',
-    'virtualenv',
     'yattag',
     'anybadge',
     'mitogen',
@@ -88,7 +86,6 @@ setup(
         'test': ['hypothesis', 'pytest', 'pytest-mock', 'tox'],
         'dev': ['pylint', 'autopep8'],
         'docs': ['sphinx', 'sphinx_rtd_theme'],
-        'celery4_engine': ['cosmic_ray_celery4_engine'],
     },
     entry_points={
         'console_scripts': [
@@ -112,13 +109,7 @@ setup(
         'cosmic_ray.execution_engines': [
             'local = cosmic_ray.execution_engines.local_execution_engine:LocalExecutionEngine',
             'ssh = cosmic_ray.execution_engines.ssh_execution_engine:SshExecutionEngine',
-       ],
-
-        'cosmic_ray.workspaces': [
-            'cloned = cosmic_ray.workspaces.cloned_workspace:ClonedWorkspace',
-            'cloned_with_virtualenv = cosmic_ray.workspaces.cloned_with_virtualenv_workspace:ClonedWithVirtualenvWorkspace',
         ],
-
     },
     long_description=LONG_DESCRIPTION,
 )

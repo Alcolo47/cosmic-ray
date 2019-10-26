@@ -163,7 +163,7 @@ class SshExecutionEngine(ExecutionEngine):
                 # Alter worker config:
                 cloning_config = worker_config['cloning'] = worker_config['cloning'].copy()
                 # - Don't build environment: already done in ssh context
-                cloning_config['commands'] = []
+                cloning_config['init-commands'] = []
                 # - Always copy from local copy (ssh context)
                 cloning_config['src-dir'] = clone_dir
                 cloning_config['method'] = 'copy'

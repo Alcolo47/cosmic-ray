@@ -25,7 +25,7 @@ execution_engine_cloning_config = Config(
     valid_entries={
         'src-dir': os.getcwd(),
         'method': Entry(default='copy', choices=('copy', 'git')),
-        'commands': Entry(required=True),
+        'init-commands': Entry(required=True),
         'repo-uri': None,
         'ignore-files': [],
         'python-load': None,
@@ -101,7 +101,7 @@ class RemoteEnvironment:
     def _run_initialisation_commands(self):
         """Run a set of commands in the workspace's virtual environment.
         """
-        commands = execution_engine_cloning_config['commands']
+        commands = execution_engine_cloning_config['init-commands']
         for command in commands:
             try:
                 log.debug('Running installation command: %s', command)

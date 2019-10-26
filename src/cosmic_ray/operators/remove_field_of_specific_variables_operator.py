@@ -9,7 +9,7 @@ from cosmic_ray.utils.config import Config, Entry
 
 remove_field_of_specific_variables_operator_config = Config(
     operators_config,
-    'remove_field_of_specific_variables',
+    'remove-field-of-specific-variables',
     valid_entries={
         'variables': Entry(default=['unique_together']),
     },

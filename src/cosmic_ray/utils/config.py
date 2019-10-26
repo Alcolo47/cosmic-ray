@@ -5,6 +5,7 @@ import sys
 from typing import Dict
 
 import toml
+import yaml
 
 log = logging.getLogger()
 
@@ -42,6 +43,7 @@ class Entry:
             return '  '.join(r)
         else:
             return self.default
+
 
 class ConfigRoot:
     valid_entries = {
@@ -104,7 +106,7 @@ class RootConfig(ConfigRoot):
     valid_entries={
         'session-file': 'cosmic-ray.sqlite',
         'module-path': Entry(required=True),
-        'exclude-modules': (),
+        'exclude-modules': [],
         'python-version': None,
     }
 
@@ -131,7 +133,7 @@ def load_config(filename=None):
     try:
         with _config_stream(filename) as handle:
             filename = handle.name
-            config = deserialize_config(handle.read())
+            config = deserialize_config(handle)
             root_config.set_config(config)
 
     except (toml.TomlDecodeError, UnicodeDecodeError) as exc:
@@ -140,16 +142,22 @@ def load_config(filename=None):
     except FileNotFoundError as exc:
         raise ConfigFileNotFoundError('Error loading configuration from {}'.format(filename)) from exc
 
-def deserialize_config(sz):
+
+def deserialize_config(handle):
     """Parse a serialized config into a ConfigDict.
     """
-    return toml.loads(sz)['cosmic-ray']
+    try:
+        return yaml.safe_load(handle)['cosmic-ray']
+    except yaml.error.YAMLError:
+        handle.seek(0)
+        return toml.loads(handle.read())['cosmic-ray']
 
 
 def serialize_config(config):
     """Return the serialized form of `config`.
     """
-    return toml.dumps({'cosmic-ray': config})
+    return yaml.dump({'cosmic-ray': config})
+    # return toml.dumps({'cosmic-ray': config})
 
 
 class ConfigError(Exception):

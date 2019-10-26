@@ -14,7 +14,7 @@ modify_string_config = Config(
     operators_config,
     'modify-string',
     valid_entries={
-        'filter-if-called-by': (),
+        'filter-if-called-by': [],
         'replace-with': "COSMIC %s RAY",
     },
 )

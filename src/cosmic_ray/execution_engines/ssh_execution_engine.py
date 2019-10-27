@@ -78,6 +78,32 @@ def get_cpu_usage():
 get_cpu_usage.last = (None, None)
 
 
+def _read_time_in_queue_disk_stat(filename):
+    with open(filename) as f:
+        for line in f:
+            return int(line.split()[10])
+
+
+def get_time_in_queue():
+    files = get_time_in_queue.files
+    last_tiq = get_time_in_queue.last
+    if files is None:
+        import glob
+        files = glob.glob('/sys/block/sd*/stat')
+        get_time_in_queue.files = files
+
+    tiq = sum(_read_time_in_queue_disk_stat(f) for f in files)
+    get_time_in_queue.last = tiq
+    if last_tiq is None:
+        time.sleep(1)
+        return get_time_in_queue()
+    return tiq - last_tiq
+
+
+get_time_in_queue.files = None
+get_time_in_queue.last = None
+
+
 class SshExecutionEngine(ExecutionEngine):
     """From a list of ssh account, try to launch remote workers.
     Remote workers are bootstrapped by using mitogen module.
@@ -188,6 +214,7 @@ class SshExecutionEngine(ExecutionEngine):
                     while True:
                         cpu_usage = await mito_call(ssh_context, get_cpu_usage)
                         log.info('Host %s: cpu: %2.f%%', ssh_context.name, cpu_usage*100)
+                        log.info('Host %s: IO: %s', ssh_context.name, get_time_in_queue())
                         if cpu_usage < .9:
                             break
                         await asyncio.sleep(5)

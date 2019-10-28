@@ -2,7 +2,6 @@ import abc
 import contextlib
 import os
 import re
-from abc import ABC
 
 _re_camel_to_kebab_case = re.compile(r'([0-9a-z])([A-Z])')
 

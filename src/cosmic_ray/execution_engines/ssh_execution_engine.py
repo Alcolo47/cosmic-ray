@@ -1,6 +1,5 @@
 import asyncio
 import os
-import time
 from asyncio import Queue, Task
 from functools import partial
 from itertools import count
@@ -8,6 +7,7 @@ from logging import getLogger
 from typing import List, Union, Type
 
 import mitogen.core
+from cosmic_ray.utils.system_stat import get_cpu_usage
 from mitogen.core import Sender
 from mitogen.parent import Context
 from mitogen.master import Broker, Router
@@ -52,56 +52,6 @@ async def mito_call(context: Context, func, *args, **kwargs):
     """asyncio version of receiver.call()
     """
     return await mito_get(context.call_async(func, *args, **kwargs))
-
-
-def _read_stat():
-    with open('/proc/stat') as f:
-        for line in f:
-            if line.startswith('cpu '):
-                vals = line.split()
-                vals13 = int(vals[1]) + int(vals[3])
-                return vals13, int(vals[4])
-
-
-def get_cpu_usage():
-    """like psutil.get_cpu_usage without psutil (psutil is not compatible with mitogen)
-    """
-    a1, b1 = get_cpu_usage.last
-    a2, b2 = _read_stat()
-    get_cpu_usage.last = (a2, b2)
-    if a1 is None:
-        time.sleep(2)
-        return get_cpu_usage()
-    return (a2 - a1) / (a2 + b2 - a1 - b1)
-
-
-get_cpu_usage.last = (None, None)
-
-
-def _read_time_in_queue_disk_stat(filename):
-    with open(filename) as f:
-        for line in f:
-            return int(line.split()[10])
-
-
-def get_time_in_queue():
-    files = get_time_in_queue.files
-    last_tiq = get_time_in_queue.last
-    if files is None:
-        import glob
-        files = glob.glob('/sys/block/sd*/stat')
-        get_time_in_queue.files = files
-
-    tiq = sum(_read_time_in_queue_disk_stat(f) for f in files)
-    get_time_in_queue.last = tiq
-    if last_tiq is None:
-        time.sleep(1)
-        return get_time_in_queue()
-    return tiq - last_tiq
-
-
-get_time_in_queue.files = None
-get_time_in_queue.last = None
 
 
 class SshExecutionEngine(ExecutionEngine):
@@ -186,16 +136,16 @@ class SshExecutionEngine(ExecutionEngine):
                                                             host_config,
                                                             prepared_data)
 
-                # Alter worker config:
-                cloning_config = worker_config['cloning'] = worker_config['cloning'].copy()
-                # - Don't build environment: already done in ssh context
-                cloning_config['init-commands'] = []
-                # - Always copy from local copy (ssh context)
-                cloning_config['src-dir'] = clone_dir
-                cloning_config['method'] = 'copy'
-                # - Load virtualenv from initial clone
-                if cloning_config['python-load']:
-                    cloning_config['python-load'] = os.path.join(clone_dir, cloning_config['python-load'])
+#                # Alter worker config:
+#                cloning_config = worker_config['cloning'] = worker_config['cloning'].copy()
+#                # - Don't build environment: already done in ssh context
+#                cloning_config['init-commands'] = []
+#                # - Always copy from local copy (ssh context)
+#                cloning_config['src-dir'] = clone_dir
+#                cloning_config['method'] = 'copy'
+#                # - Load virtualenv from initial clone
+#                if cloning_config['python-load']:
+#                    cloning_config['python-load'] = os.path.join(clone_dir, cloning_config['python-load'])
 
                 # Create local workers for ever
                 for i in count(start=1):
@@ -204,19 +154,22 @@ class SshExecutionEngine(ExecutionEngine):
                     await self._do_init_new_context(sub_context,
                                                     _remote_worker_initialize,
                                                     worker_config,
-                                                    None)
+                                                    prepared_data)
 
                     # This new context is available for jobs
                     await self.available_contexts.put(sub_context)
                     log.info("Host instance %s READY", sub_context.name)
 
-                    # Wait until cpu usage will be under 90%
+                    # Wait until cpu usage will be under 90%, with low disk usage
                     while True:
-                        cpu_usage = await mito_call(ssh_context, get_cpu_usage)
-                        log.info('Host %s: cpu: %2.f%%', ssh_context.name, cpu_usage*100)
-                        log.info('Host %s: IO: %s', ssh_context.name, get_time_in_queue())
-                        if cpu_usage < .9:
-                            break
+                        cpu_usage, load_avg = await mito_call(ssh_context, _get_system_stat)
+                        if load_avg > 10:
+                            log.warning('Localhost over-burn: loaf avg/cpu: %2f  cpu: %2.f%%', load_avg, cpu_usage*100)
+                        else:
+                            cpu_usage, load_avg = await mito_call(ssh_context, _get_system_stat)
+                            log.info('Host %s: loaf avg/cpu: %2f  cpu: %2.f%%', ssh_context.name, load_avg, cpu_usage*100)
+                            if cpu_usage < .9 and load_avg < 10:
+                                break
                         await asyncio.sleep(5)
 
             except mitogen.core.Error as ex:
@@ -224,7 +177,8 @@ class SshExecutionEngine(ExecutionEngine):
                 # Retry for ever
                 await asyncio.sleep(30)
 
-    async def _do_init_new_context(self, context: Context,
+    @staticmethod
+    async def _do_init_new_context(context: Context,
                                    initializer,
                                    config,
                                    prepared_data):
@@ -270,7 +224,7 @@ def _remote_host_initialize(config, sender: Sender, router: Router):
 
 @mitogen.core.takes_router
 def _remote_worker_initialize(config, sender: Sender, router: Router):
-    return _remote_initialize(config, sender, RemoteEnvironment, router)
+    return _remote_initialize(config, sender, SshRemoteEnvironment, router)
 
 
 def _remote_initialize(config,
@@ -283,6 +237,14 @@ def _remote_initialize(config,
         prepared_data = receiver.get().unpickle()
     env = remote_environment_class(config, prepared_data)
     return env.clone_dir
+
+
+def _get_system_stat():
+    cpu_usage = get_cpu_usage()
+    # io_load = get_disk_time_in_queue()
+    cpu_count = os.cpu_count()
+    load_avg1, load_avg5, load_avg15 = os.getloadavg()
+    return cpu_usage, load_avg1 / cpu_count
 
 
 def _execute(data):

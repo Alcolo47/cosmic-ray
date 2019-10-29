@@ -122,10 +122,8 @@ class SshExecutionEngine(ExecutionEngine):
                 ssh_context = await loop.run_in_executor(None, partial(router.ssh,
                                                                        **host_data, name="ssh %s" % hostname, python_path='python3'))
 
-                import copy
-                original = execution_engine_config.get_config().copy()
-                host_config = copy.deepcopy(original)
-                worker_config = copy.deepcopy(host_config.copy())
+                host_config = execution_engine_config.get_config().copy()
+                worker_config = host_config.copy()
 
                 # Alter ssh config: Don't load environment: (mitogen don't like this)
                 cloning_config = host_config['cloning'] = host_config['cloning'].copy()
@@ -136,16 +134,16 @@ class SshExecutionEngine(ExecutionEngine):
                                                             host_config,
                                                             prepared_data)
 
-#                # Alter worker config:
-#                cloning_config = worker_config['cloning'] = worker_config['cloning'].copy()
-#                # - Don't build environment: already done in ssh context
-#                cloning_config['init-commands'] = []
-#                # - Always copy from local copy (ssh context)
-#                cloning_config['src-dir'] = clone_dir
-#                cloning_config['method'] = 'copy'
-#                # - Load virtualenv from initial clone
-#                if cloning_config['python-load']:
-#                    cloning_config['python-load'] = os.path.join(clone_dir, cloning_config['python-load'])
+                # Alter worker config:
+                cloning_config = worker_config['cloning'] = worker_config['cloning'].copy()
+                # - Don't build environment: already done in ssh context
+                cloning_config['init-commands'] = []
+                # - Always copy from local copy (ssh context)
+                cloning_config['src-dir'] = clone_dir
+                cloning_config['method'] = 'copy'
+                # - Load virtualenv from initial clone
+                if cloning_config['python-load']:
+                    cloning_config['python-load'] = os.path.join(clone_dir, cloning_config['python-load'])
 
                 # Create local workers for ever
                 for i in count(start=1):
@@ -154,7 +152,7 @@ class SshExecutionEngine(ExecutionEngine):
                     await self._do_init_new_context(sub_context,
                                                     _remote_worker_initialize,
                                                     worker_config,
-                                                    prepared_data)
+                                                    None)
 
                     # This new context is available for jobs
                     await self.available_contexts.put(sub_context)
@@ -164,10 +162,10 @@ class SshExecutionEngine(ExecutionEngine):
                     while True:
                         cpu_usage, load_avg = await mito_call(ssh_context, _get_system_stat)
                         if load_avg > 10:
-                            log.warning('Localhost over-burn: loaf avg/cpu: %2f  cpu: %2.f%%', load_avg, cpu_usage*100)
+                            log.warning('Localhost over-burn: loaf avg/cpu: %2.1f  cpu: %2.f%%', load_avg, cpu_usage*100)
                         else:
                             cpu_usage, load_avg = await mito_call(ssh_context, _get_system_stat)
-                            log.info('Host %s: loaf avg/cpu: %2f  cpu: %2.f%%', ssh_context.name, load_avg, cpu_usage*100)
+                            log.info('Host %s: loaf avg/cpu: %2.1f  cpu: %2.f%%', ssh_context.name, load_avg, cpu_usage*100)
                             if cpu_usage < .9 and load_avg < 10:
                                 break
                         await asyncio.sleep(5)
@@ -224,7 +222,7 @@ def _remote_host_initialize(config, sender: Sender, router: Router):
 
 @mitogen.core.takes_router
 def _remote_worker_initialize(config, sender: Sender, router: Router):
-    return _remote_initialize(config, sender, SshRemoteEnvironment, router)
+    return _remote_initialize(config, sender, RemoteEnvironment, router)
 
 
 def _remote_initialize(config,
@@ -250,6 +248,6 @@ def _get_system_stat():
 def _execute(data):
     if data:
         data = ExecutionData.from_dict(data)
-    job_id, result = SshRemoteEnvironment.execute(data)
+    job_id, result = RemoteEnvironment.execute(data)
     result = result.to_dict()
     return job_id, result

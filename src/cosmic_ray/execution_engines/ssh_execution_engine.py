@@ -62,6 +62,7 @@ class SshExecutionEngine(ExecutionEngine):
     """
     def __init__(self, hosts=None):
         self.broker = Broker()
+        self.broker.shutdown_timeout = 30
         self.host_datas = hosts or execution_engine_ssh_config['hosts']  # type: List
 
         # List of initializer asyncio tasks.

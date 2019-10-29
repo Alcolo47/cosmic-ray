@@ -14,6 +14,7 @@ execution_engine_config = Config(
     valid_entries={
         'type': 'local',
         'run-with-no-mutation': Entry(default=False),
+        'nice': 0,
     },
 )
 

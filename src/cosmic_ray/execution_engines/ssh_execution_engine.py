@@ -30,7 +30,7 @@ execution_engine_ssh_config = Config(
     'ssh',
     valid_entries={
         'hosts': [
-            {'hostname': 'localhost', 'username': os.environ.get('USER', '')},
+            {'hostname': 'localhost', 'username': os.environ.get('USER', ''), 'nice': 10},
         ],
 
     },
@@ -111,6 +111,7 @@ class SshExecutionEngine(ExecutionEngine):
 
         loop = asyncio.get_running_loop()
         hostname = host_data['hostname']
+        nice = host_data.pop('nice', None)
 
         # Retry for ever loop
         while True:
@@ -133,6 +134,7 @@ class SshExecutionEngine(ExecutionEngine):
                 clone_dir = await self._do_init_new_context(ssh_context,
                                                             _remote_host_initialize,
                                                             host_config,
+                                                            nice,
                                                             prepared_data)
 
                 # Alter worker config:
@@ -153,6 +155,7 @@ class SshExecutionEngine(ExecutionEngine):
                     await self._do_init_new_context(sub_context,
                                                     _remote_worker_initialize,
                                                     worker_config,
+                                                    nice,
                                                     None)
 
                     # This new context is available for jobs
@@ -180,10 +183,11 @@ class SshExecutionEngine(ExecutionEngine):
     async def _do_init_new_context(context: Context,
                                    initializer,
                                    config,
+                                   nice,
                                    prepared_data):
         log.info("Initializing host instance %s", context.name)
         with mitogen.core.Receiver(context.router) as receiver:
-            p = context.call_async(initializer, config, receiver.to_sender())
+            p = context.call_async(initializer, config, nice, receiver.to_sender())
             sender = receiver.get().unpickle()
             sender.send(prepared_data)
             clone_dir = await mito_get(p)
@@ -217,16 +221,17 @@ def _on_shutdown():
 
 
 @mitogen.core.takes_router
-def _remote_host_initialize(config, sender: Sender, router: Router):
-    return _remote_initialize(config, sender, SshRemoteEnvironment, router)
+def _remote_host_initialize(config, nice, sender: Sender, router: Router):
+    return _remote_initialize(config, nice, sender, SshRemoteEnvironment, router)
 
 
 @mitogen.core.takes_router
-def _remote_worker_initialize(config, sender: Sender, router: Router):
-    return _remote_initialize(config, sender, RemoteEnvironment, router)
+def _remote_worker_initialize(config, nice, sender: Sender, router: Router):
+    return _remote_initialize(config, nice, sender, RemoteEnvironment, router)
 
 
 def _remote_initialize(config,
+                       nice,
                        sender: Sender,
                        remote_environment_class: Type[RemoteEnvironment],
                        router: Router):
@@ -235,6 +240,8 @@ def _remote_initialize(config,
         sender.send(receiver.to_sender())
         prepared_data = receiver.get().unpickle()
     env = remote_environment_class(config, prepared_data)
+    if nice:
+        os.nice(nice)
     return env.clone_dir
 
 

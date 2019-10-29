@@ -43,6 +43,9 @@ class RemoteEnvironment:
 
         execution_engine_config.set_config(config)
 
+        if execution_engine_config['nice'] != 0:
+            os.nice(execution_engine_config['nice'])
+
         self._tempdir = tempfile.TemporaryDirectory()
         self.clone_dir = os.path.join(self._tempdir.name, 'repo')
         log.debug('New project clone in %s', self._tempdir.name)

@@ -104,7 +104,7 @@ class RemoteEnvironment:
     def _run_initialisation_commands(self):
         """Run a set of commands in the workspace's virtual environment.
         """
-        commands = execution_engine_cloning_config['init-commands']
+        commands = execution_engine_cloning_config['init-commands'] or ()
         for command in commands:
             try:
                 log.debug('Running installation command: %s', command)

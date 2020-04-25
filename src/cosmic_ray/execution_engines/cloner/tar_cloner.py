@@ -14,12 +14,15 @@ class TarCloner(Cloner):
 
     @classmethod
     def prepare_local_side(cls):
-        re_exclude = execution_engine_cloning_config['ignore-files']
+        re_exclude = execution_engine_cloning_config['ignore-files'] or ()
         re_exclude = '|'.join('(.*/|)%s' % s for s in re_exclude)
 
-        p1 = Popen(('find',
-                    '(', '-regextype', 'posix-extended', '-regex', re_exclude, '-prune', ')',
-                    '-o', '-type', 'f', '-print0'), stdout=PIPE)
+        cmd = ['find']
+        if re_exclude:
+            cmd += ['(', '-regextype', 'posix-extended', '-regex', re_exclude, '-prune', ')', '-o']
+        cmd += ['-type', 'f', '-print0']
+
+        p1 = Popen(cmd, stdout=PIPE)
 
         p2 = Popen(('tar', 'czf', '-',
                     '--verbatim-files-from', '--null', '-T', '-'),

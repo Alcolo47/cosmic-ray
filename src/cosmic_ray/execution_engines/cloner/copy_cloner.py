@@ -13,7 +13,7 @@ class CopyCloner(Cloner):
         from cosmic_ray.execution_engines.remote_environment import \
             execution_engine_cloning_config
         self.src_path = execution_engine_cloning_config['src-dir']
-        ignore_files = execution_engine_cloning_config['ignore-files']
+        ignore_files = execution_engine_cloning_config['ignore-files'] or ()
         self.ignore_files = ignore_files
 
     def clone(self, dest_path):

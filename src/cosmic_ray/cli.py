@@ -122,7 +122,7 @@ def handle_run(args):
     session_file = _get_session_file(args)
 
     module_path = root_config['module-path']
-    exclude_modules = root_config['exclude-modules']
+    exclude_modules = root_config['exclude-modules'] or ()
 
     modules = get_module_list(exclude_modules, module_path)
     with use_db(session_file) as work_db:

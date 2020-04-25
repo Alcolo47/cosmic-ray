@@ -103,7 +103,7 @@ class Config(ConfigRoot):
 
 
 class RootConfig(ConfigRoot):
-    valid_entries={
+    valid_entries = {
         'session-file': 'cosmic-ray.sqlite',
         'module-path': Entry(required=True),
         'exclude-modules': [],

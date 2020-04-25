@@ -41,7 +41,6 @@ INSTALL_REQUIRES = [
     'gitpython',
     'parso',
     'qprompt',
-    'spor>=1.1.0',
     'stevedore',
     'toml',
     'pyyaml',
@@ -102,7 +101,6 @@ setup(
         ],
 
         'cosmic_ray.interceptors': [
-            'spor = cosmic_ray.interceptors.spor:SporInterceptor',
             'pragma = cosmic_ray.interceptors.pragma_interceptor:PragmaInterceptor',
             'annotation = cosmic_ray.interceptors.annotation_interceptor:AnnotationInterceptor',
         ],

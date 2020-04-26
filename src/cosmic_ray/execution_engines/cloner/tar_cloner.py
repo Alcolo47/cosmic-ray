@@ -17,16 +17,17 @@ class TarCloner(Cloner):
         re_exclude = execution_engine_cloning_config['ignore-files'] or ()
         re_exclude = '|'.join('(.*/|)%s' % s for s in re_exclude)
 
-        cmd = ['find']
+        cmd_find = ['find']
         if re_exclude:
-            cmd += ['(', '-regextype', 'posix-extended', '-regex', re_exclude, '-prune', ')', '-o']
-        cmd += ['-type', 'f', '-print0']
+            cmd_find += ['(', '-regextype', 'posix-extended', '-regex', re_exclude, '-prune', ')', '-o']
+        cmd_find += ['-type', 'f', '-print0']
 
-        p1 = Popen(cmd, stdout=PIPE)
+        log.debug('List source files with %s', ' '.join(cmd_find))
+        p1 = Popen(cmd_find, stdout=PIPE)
 
-        p2 = Popen(('tar', 'czf', '-',
-                    '--verbatim-files-from', '--null', '-T', '-'),
-                   stdin=p1.stdout, stdout=PIPE)
+        cmd_tar = ('tar', 'czf', '-', '--verbatim-files-from', '--null', '-T', '-')
+        log.debug('Save source files with %s', ' '.join(cmd_tar))
+        p2 = Popen(cmd_tar, stdin=p1.stdout, stdout=PIPE)
 
         data = p2.stdout.read()
         ret1 = p1.wait()
@@ -36,6 +37,7 @@ class TarCloner(Cloner):
         if ret2 != 0:
             raise Exception("Problem when tarring: %s" % ret2)
 
+        log.debug('Source files saved.')
         return data
 
     def load_prepared_data(self, prepared_data):

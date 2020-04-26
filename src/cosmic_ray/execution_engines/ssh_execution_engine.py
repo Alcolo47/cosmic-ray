@@ -80,6 +80,7 @@ class SshExecutionEngine(ExecutionEngine):
         prepared_data = SshRemoteEnvironment.prepare_local_side()
 
         # Initialize each remote host with parallel coroutines.
+        log.debug("Initialising %s hosts", len(self.host_datas))
         for host_data in self.host_datas:
             try:
                 coro = self._do_init_ssh(router, host_data, prepared_data)
@@ -116,7 +117,7 @@ class SshExecutionEngine(ExecutionEngine):
         # Retry for ever loop
         while True:
             try:
-                if host_data['identity_file']:
+                if host_data.get('identity_file'):
                     # Some ssh client can tell you: "Permissions 0666 for 'identity_file' are too open."
                     os.chmod(host_data['identity_file'], mode=0o600)
 

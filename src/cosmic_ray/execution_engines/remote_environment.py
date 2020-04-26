@@ -106,17 +106,14 @@ class RemoteEnvironment:
         """
         commands = execution_engine_cloning_config['init-commands'] or ()
         for command in commands:
-            try:
-                log.debug('Running installation command: %s', command)
-                r = run(command, shell=isinstance(command, str),
-                        cwd=self.clone_dir,
-                        encoding='utf-8',
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        check=True)
+            log.debug('Running installation command: %s', command)
+            r = run(command, shell=isinstance(command, str),
+                    cwd=self.clone_dir,
+                    encoding='utf-8',
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT)
 
+            if r.returncode == 0:
                 log.debug('Command results: %s', r.stdout)
-
-            except subprocess.CalledProcessError as ex:
-                log.exception("Error running command: %s\n%s", command, ex.stdout)
-                raise
+            else:
+                log.warning("Error running command: %s\n%s", command, r.stdout)

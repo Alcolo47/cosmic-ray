@@ -174,7 +174,6 @@ class Worker:
 
         return run(cmd, shell=shell, check=True, capture_output=True)
 
-
     async def _async_run_tests(self):
         # We want to avoid writing pyc files in case our changes happen too fast for Python to
         # notice them. If the timestamps between two changes are too small, Python won't recompile
@@ -202,31 +201,46 @@ class Worker:
         else:
             timeout = self._timeout
             waited = 0
+            soft_kill = None
             while True:
                 try:
                     outs, errs = await asyncio.wait_for(proc.communicate(), timeout)
 
                     assert proc.returncode is not None
 
-                    if proc.returncode == 0:
+                    if soft_kill is False:
+                        return Outcome.KILLED, 'timeout: kill -9'
+
+                    elif soft_kill is True:
+                        return Outcome.KILLED, 'timeout'
+
+                    elif proc.returncode == 0:
                         return Outcome.SURVIVED, outs.decode('utf-8')
+
                     else:
                         return Outcome.KILLED, outs.decode('utf-8')
 
                 except asyncio.TimeoutError:
                     waited += timeout
                     cutime = self._get_cutime(proc.pid)
-                    if cutime < self._timeout:
+                    # timeout in user-time, but if process is locked, wait for 3 * timeout in real time
+                    if soft_kill is None and cutime < self._timeout and waited < 3 * timeout:
                         # Wait again
                         if waited > 0:
+                            # Recompute timeout
                             timeout = (self._timeout * waited / cutime) - waited
                             # Add 10% of extra time to avoid asymptotic convergence
                             timeout *= 1.1
-                        else:
-                            timeout = self._timeout
+
                     else:
-                        proc.terminate()
-                        return Outcome.KILLED, 'timeout'
+                        if soft_kill is None:
+                            proc.terminate()
+                            # Wait 2s user-time more (or 2*3 s in real-time)
+                            timeout = 2
+                            soft_kill = True
+                        else:
+                            proc.send_signal(9)
+                            soft_kill = False
 
                 except Exception:  # pylint: disable=W0703
                     proc.terminate()
